@@ -75,11 +75,10 @@ export const authServices = {
     await UserInfoModel.create({
       userId: userData._id,
       dob: null,
-      timeOfBirth:null,
-      birthPlace:null
-      }
-    );
- 
+      timeOfBirth: null,
+      birthPlace: null,
+    });
+
     const token = await generateToken(userData);
     const user = userData.toObject();
     delete user.password;
@@ -156,8 +155,7 @@ export const authServices = {
     return { ...userObj, token, subscription: subscription?.status || null };
   },
   async socialLogin(payload: any) {
-    const { idToken, fcmToken, authType, deviceType } =
-      payload;
+    const { idToken, fcmToken, authType, deviceType } = payload;
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
     const ticket = await client.verifyIdToken({
       idToken: idToken,
@@ -325,7 +323,7 @@ export const authServices = {
   },
 
   async setupIntent(payload: any) {
-    const { language, country, fullName, email, id, phone } = payload;
+    const { language, fullName, email, id, phone } = payload;
     let customer;
     const existingCustomers = await stripe.customers.list({
       email,
@@ -341,7 +339,6 @@ export const authServices = {
         phone: phone,
         metadata: {
           userId: id,
-          country: country,
           language: language,
         },
       });
@@ -380,7 +377,7 @@ export const authServices = {
   },
 
   async buyPlan(payload: any) {
-    const { planId, currency, id, paymentMethodId } = payload;
+    const { planId, currency, id, paymentMethodId, freeTrial } = payload;
 
     const plans = await planModel
       .findOne({ _id: planId, isActive: true })
@@ -416,17 +413,24 @@ export const authServices = {
       throw new Error("stripeCustomerIdNotFound");
     }
 
-    if (user.hasUsedTrial && plans.trialDays > 0) {
-      throw new Error("userAlreadyUsedTrial");
-    }
+    let subscription;
 
-    const subscription = await stripe.subscriptions.create({
-      customer: user.stripeCustomerId,
-      items: [{ price: productPrice.id }],
-      trial_period_days: plans.trialDays,
-      default_payment_method: paymentMethodId,
-      expand: ["latest_invoice.payment_intent"],
-    });
+    if (freeTrial && !user.hasUsedTrial) {
+      subscription = await stripe.subscriptions.create({
+        customer: user.stripeCustomerId,
+        items: [{ price: productPrice.id }],
+        trial_period_days: plans.trialDays,
+        default_payment_method: paymentMethodId,
+        expand: ["latest_invoice.payment_intent"],
+      });
+    } else {
+      subscription = await stripe.subscriptions.create({
+        customer: user.stripeCustomerId,
+        items: [{ price: productPrice.id }],
+        default_payment_method: paymentMethodId,
+        expand: ["latest_invoice.payment_intent"],
+      });
+    }
 
     user.hasUsedTrial = true;
     user.isCardSetupComplete = true;

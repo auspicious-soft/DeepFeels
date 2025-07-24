@@ -239,7 +239,6 @@ export const setupIntent = async (req: Request, res: Response) => {
 
     const response = await authServices.setupIntent({
       language: userData.language,
-      country: userData.country,
       ...userData,
     });
     return OK(res, response || {}, req.body.language || "en");
@@ -254,7 +253,7 @@ export const buyPlan = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
     req.body.language = userData.language;
-    const { planId, currency, paymentMethodId } = req.body;
+    const { planId, currency, paymentMethodId, freeTrial } = req.body;
 
     if (!planId || !currency || !paymentMethodId) {
       throw new Error(
@@ -263,13 +262,13 @@ export const buyPlan = async (req: Request, res: Response) => {
     }
     const response = await authServices.buyPlan({
       language: userData.language,
-      country: userData.country,
       planId,
       currency,
       paymentMethodId,
+      freeTrial,
       ...userData,
     });
-    return OK(res, response || {}, req.body.language || "en", "loginSuccess");
+    return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language || "en");
