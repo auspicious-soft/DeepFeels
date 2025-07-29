@@ -13,11 +13,17 @@ import {
   changeCountry,
   changeLanguage,
   changePassword,
+  createJournal,
+  createOrUpdateMood,
   deleteAccount,
+  getDailyReflection,
+  getJournalByUserId,
   getNotificationSetting,
   getPlatformInfo,
   getUser,
   postNotificationSetting,
+  toggleJournalEncryption,
+  updateJournal,
   updateSubscription,
   updateUser,
   userProfile,
@@ -41,10 +47,15 @@ paidRouter.get("/home", userHome);
 // PROFILE
 paidRouter.get("/profile", userProfile);
 paidRouter.get("/get-user", getUser);
+paidRouter.get("/daily-reflection",getDailyReflection)
+paidRouter.route("/journal").post(createJournal).get(getJournalByUserId)
+paidRouter.put("/journal/:id", updateJournal)
 paidRouter.patch("/update-user", updateUser);
+paidRouter.post("/toggle/journal-encryption",toggleJournalEncryption)
 paidRouter.patch("/change-password", changePassword);
-paidRouter.patch("/change-language", changeLanguage);
-paidRouter.patch("/change-country", changeCountry);
+paidRouter.post("/mood",createOrUpdateMood)
+// paidRouter.patch("/change-language", changeLanguage);
+// paidRouter.patch("/change-country", changeCountry);
 paidRouter.get("/get-platform-info", getPlatformInfo)
 paidRouter.route("/notification-setting").get(getNotificationSetting).patch(postNotificationSetting)
 paidRouter.post("/delete-account", deleteAccount)

@@ -37,7 +37,7 @@ export const profileServices = {
       userId: payload.userData.id,
     }).lean();
 
-    const { dob, gender, measurements } = additionalInfo || {};
+    const { dob } = additionalInfo || {};
 
     return {
       _id: payload.userData.id,
@@ -47,57 +47,69 @@ export const profileServices = {
       email,
       countryCode,
       dob,
-      gender,
-      measurements,
       genders: genders,
     };
   },
 
-  updateUser: async (payload: any) => {
-    const userInfo = await UserInfoModel.findOneAndUpdate(
-      { userId: payload.id },
-      {
-        $set: {
-          measurements: {
-            heightCm: payload?.heightCm,
-            bustCm: payload?.bustCm,
-            waistCm: payload?.waistCm,
-            hipsCm: payload?.hipsCm,
-          },
-          gender: payload?.gender,
-          dob: payload?.dob,
-        },
-      },
-      { new: true }
-    ).lean();
+updateUser: async (payload: any) => {
+  // Define dynamic update objects
+  let userUpdateInfo: { [key: string]: any } = {};
+  let updatedUserData: { [key: string]: any } = {};
 
-    const user = await UserModel.findByIdAndUpdate(
-      payload.id,
-      {
-        $set: {
-          fullName: payload?.fullName,
-          image: payload?.image,
-        },
-      },
-      { new: true }
-    ).lean();
+  // Conditionally populate UserInfo update fields
+  if (payload.dob) {
+    userUpdateInfo.dob = payload.dob;
+  }
+  if (payload.timeOfBirth) {
+    userUpdateInfo.timeOfBirth = payload.timeOfBirth;
+  }
+  if (payload.birthPlace) {
+    userUpdateInfo.birthPlace = payload.birthPlace;
+  }
 
-    return {
-      _id: payload.id,
-      image: user?.image || "",
-      fullName: user?.fullName || "",
-      phone: user?.phone || "",
-      email: user?.email || "",
-      countryCode: user?.countryCode || "",
-      dob: userInfo?.dob || "",
-      gender: userInfo?.gender || "",
-      measurements: userInfo?.measurements || {},
-      genders: genders,
-    };
-  },
+  // Conditionally populate User update fields
+  if (payload.fullName) {
+    updatedUserData.fullName = payload.fullName;
+  }
+  if (payload.countryCode) {
+    updatedUserData.countryCode = payload.countryCode;
+  }
+  if (payload.phone) {
+    updatedUserData.phone = payload.phone;
+  }
+  if (payload.image) {
+    updatedUserData.image = payload.image;
+  }
+
+  // Update UserInfo model
+  const userInfo = await UserInfoModel.findOneAndUpdate(
+    { userId: payload.id },
+    { $set: userUpdateInfo },
+    { new: true }
+  ).lean();
+
+  // Update User model
+  const user = await UserModel.findByIdAndUpdate(
+    payload.id,
+    { $set: updatedUserData },
+    { new: true }
+  ).lean();
+
+  return {
+    _id: payload.id,
+    image: user?.image || "",
+    fullName: user?.fullName || "",
+    phone: user?.phone || "",
+    email: user?.email || "",
+    countryCode: user?.countryCode || "",
+    dob: userInfo?.dob || "",
+    timeOfBirth: userInfo?.timeOfBirth || "",
+    birthPlace: userInfo?.birthPlace || "",
+  };
+},
 
   changePassword: async (payload: any) => {
-    const { id, oldPassword, newPassword, language } = payload;
+    const { id, oldPassword, newPassword } = payload;
 
     const user = await UserModel.findById(id);
     if (!user) {

@@ -8,6 +8,7 @@ export interface IUserInfo extends Document {
   birthPlace?:string;
   createdAt?: Date;
   updatedAt?: Date;
+  journalEncryption?:boolean;
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -30,17 +31,13 @@ const userSchema = new Schema<IUserInfo>(
     type:String,
     default:null,
   },
+  journalEncryption:{
+    type: Boolean,
+    default: false,
+  },
 },
   { timestamps: true }
 );
-
-// Virtual: calculate age from DOB
-userSchema.virtual("age").get(function (this: IUserInfo) {
-  if (!this.dob) return null;
-  const ageDifMs = Date.now() - this.dob.getTime();
-  const ageDate = new Date(ageDifMs);
-  return Math.abs(ageDate.getUTCFullYear() - 1970);
-});
 
 // Ensure virtuals show up in toJSON and toObject
 userSchema.set("toJSON", { virtuals: true });

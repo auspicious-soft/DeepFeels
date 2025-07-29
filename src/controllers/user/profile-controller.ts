@@ -1,10 +1,14 @@
 import { Request, Response } from "express";
 import { PlatformInfoModel } from "src/models/admin/platform-info-schema";
+import { DailyReflectionModel } from "src/models/user/daily-reflection";
 import { TokenModel } from "src/models/user/token-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
+import { journalServices } from "src/services/journal/journal-services";
+import { moodServices } from "src/services/mood/mood-service";
 import { profileServices } from "src/services/user/user-services";
 import { countries, languages } from "src/utils/constant";
+import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
 import {
   BADREQUEST,
   CREATED,
@@ -46,41 +50,17 @@ export const getUser = async (req: Request, res: Response) => {
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    req.body.language = userData.language || "en";
 
-    const { heightCm, bustCm, waistCm, hipsCm, gender, dob, fullName, image } =
+    const { fullName,email,countryCode,phone,dob,timeOfBirth,birthPlace,image} =
       req.body;
 
-    if (heightCm && !Number.isInteger(heightCm)) {
-      throw new Error("invalidFields");
-    }
-    if (bustCm && !Number.isInteger(bustCm)) {
-      throw new Error("invalidFields");
-    }
-    if (waistCm && !Number.isInteger(waistCm)) {
-      throw new Error("invalidFields");
-    }
-    if (hipsCm && !Number.isInteger(hipsCm)) {
-      throw new Error("invalidFields");
-    }
-    if (dob && typeof dob !== "string") {
-      throw new Error("invalidFields");
-    }
-    if (fullName && typeof dob !== "string") {
-      throw new Error("invalidFields");
-    }
-    if (image && typeof image !== "string") {
-      throw new Error("invalidFields");
-    }
-
     const response = await profileServices.updateUser({
-      heightCm,
-      bustCm,
-      waistCm,
-      hipsCm,
-      gender,
       dob,
       fullName,
+      countryCode,
+      phone,
+      timeOfBirth,
+      birthPlace,
       image,
       id: userData.id,
     });
@@ -97,7 +77,6 @@ export const updateUser = async (req: Request, res: Response) => {
 export const changePassword = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    req.body.language = userData.language || "en";
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
@@ -108,7 +87,6 @@ export const changePassword = async (req: Request, res: Response) => {
       id: userData.id,
       oldPassword,
       newPassword,
-      language: req.body.language,
     });
 
     return OK(res, response || {}, req.body.language);
@@ -275,18 +253,22 @@ export const deleteAccount = async (req: Request, res: Response) => {
 export const updateSubscription = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    const {type, planId} = req.body;
+    const { type, planId } = req.body;
 
-    if(!["upgrade", "cancelTrial", "cancelSubscription"].includes(type)){
-      throw new Error("invalidFields")
+    if (!["upgrade", "cancelTrial", "cancelSubscription"].includes(type)) {
+      throw new Error("invalidFields");
     }
 
-    if(type === "upgrade" && !planId){
-      throw new Error("PlanId is required")
+    if (type === "upgrade" && !planId) {
+      throw new Error("PlanId is required");
     }
 
-    const response = await profileServices.updatePlan({type, planId, userData})
- 
+    const response = await profileServices.updatePlan({
+      type,
+      planId,
+      userData,
+    });
+
     return OK(res, {}, req.body.language, "accountDeleted");
   } catch (err: any) {
     if (err.message) {
@@ -295,3 +277,162 @@ export const updateSubscription = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
+export const getDailyReflection = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+
+    const userData = await UserModel.findById(user.id).lean();
+    if (!userData) {
+      throw new Error("User not found");
+    }
+    if (!userData.isUserInfoComplete) {
+      throw new Error("User info is not complete");
+    }
+    const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
+    if (!userInfo?.dob || !userInfo?.timeOfBirth || !userInfo?.birthPlace) {
+      return res.status(400).json({ message: "Incomplete user birth details" });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const existing = await DailyReflectionModel.findOne({
+      userId: user.id,
+      date: today,
+    }).lean();
+
+    if (existing)
+      return res.status(200).json({ success: true, data: existing });
+
+    const generated = await generateReflectionWithGPT({
+      name: userData.fullName,
+      dob: userInfo.dob.toISOString().split("T")[0],
+      timeOfBirth: userInfo.timeOfBirth,
+      location: userInfo.birthPlace,
+    });
+
+    const saved = await DailyReflectionModel.create({
+      userId: user.id,
+      date: today,
+      ...generated,
+    });
+
+    return res.status(200).json({ success: true, data: saved });
+  } catch (err: any) {
+    console.error("Error generating reflection:", err);
+    if (err.message) {
+      return BADREQUEST(res, err.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
+
+export const createJournal = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+    throw new Error("title and content are required");
+    }
+    const date = new Date();
+    const journal = await journalServices.createOrUpdateJournal({
+      userId: user.id,
+      date: new Date(date),
+      title,
+      content,
+    });
+
+    return res.status(201).json({ success: true, data: journal });
+  } catch (err: any) {
+    console.error(err);
+    if (err.message) {
+      return BADREQUEST(res, err.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
+export const getJournalByUserId = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const journals = await journalServices.getJournalsByUser(user.id);
+    return res.status(200).json({ success: true, data: journals });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
+export const updateJournal = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const id = req.params.id;
+    const { title, content } = req.body;
+    if ([title, content].some((field) => !field || field.trim() === "")) {
+     throw new Error("title and content are required");
+    }
+    const payload = {
+      title,
+      content,
+    };
+    const journal = await journalServices.updateJournalById(
+      id,
+      user.id,
+      payload
+    );
+    if (!journal) {
+      throw new Error("Journal not found or you do not have permission to update it");
+    }
+    return res.status(200).json({ success: true, data: journal });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
+export const toggleJournalEncryption = async(req:Request,res:Response)=>{
+  try {
+    const user = req.user as any
+    const userInfo = await UserInfoModel.findOne({userId:user.id}).lean()
+    if(!userInfo){
+      throw new Error("user not found")
+    }
+    const updatedUserInfo = await UserInfoModel.findOneAndUpdate(
+      {userId:user.id},
+      {$set:{journalEncryption:!userInfo.journalEncryption}},
+      {new:true}
+    )
+    return res.status(200).json({ success: true, data: updatedUserInfo });
+  } catch (error:any) {
+      console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
+export const createOrUpdateMood = async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      const { mood } = req.body;
+
+      if (!mood) throw new Error("Mood is required");
+
+      const result = await moodServices.createOrUpdateMood({
+        userId: user.id,
+        mood,
+      });
+
+      return res.status(200).json({ success: true, data: result });
+    } catch (error: any) {
+      console.error(error);
+      if (error.message) {
+        return BADREQUEST(res, error.message, req.body.language);
+      }
+      return INTERNAL_SERVER_ERROR(res, req.body.language);
+    }
+  }

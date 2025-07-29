@@ -1,16 +1,11 @@
-interface TranslatedText {
-  en?: string;
-  nl?: string;
-  fr?: string;
-  es?: string;
-}
+
 
 interface CreatePlanPayload {
   key: string;
-  name: TranslatedText;
-  description: TranslatedText;
+  name: string;
+  description: string;
   trialDays: number;
-  gbpAmount: number;
+  amount: number;
   fullAccess: any;
   trialAccess: any;
   features:any;

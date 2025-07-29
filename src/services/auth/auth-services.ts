@@ -409,6 +409,10 @@ export const authServices = {
 
     const user = await UserModel.findById(id);
 
+    const activePlan = await SubscriptionModel.findOne({ userId: id, status: "active" });
+    if(activePlan){
+      throw new Error("activePlanExist");
+    }
     if (!user?.stripeCustomerId) {
       throw new Error("stripeCustomerIdNotFound");
     }
