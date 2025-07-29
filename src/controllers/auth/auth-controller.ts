@@ -219,10 +219,7 @@ export const userMoreInfo = async (req: Request, res: Response) => {
 export const getPlans = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    req.body.language = userData.language;
     const response = await authServices.getPlans({
-      language: userData.language,
-      country: userData.country,
     });
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {

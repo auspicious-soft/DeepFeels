@@ -304,22 +304,22 @@ export const authServices = {
 
     const plans = await planModel.find({ isActive: true }).lean();
 
-    const translatedPlans = plans?.map((plan: any) => {
-      return {
-        name: plan.name?.[language] || plan.name?.en,
-        description: plan.description?.[language] || plan.description?.en,
-        features: plan.features?.map(
-          (feature: any) => feature?.[language] || feature?.en
-        ),
-        trialDays: plan.trialDays,
-        gbpAmount: plan.unitAmounts.eur / 100,
-        eurAmount: plan.unitAmounts.gbp / 100,
-        currency: Object.keys(plan.stripePrices),
-        _id: plan?._id,
-      };
-    });
+    // const translatedPlans = plans?.map((plan: any) => {
+    //   return {
+    //     name: plan.name?.[language] || plan.name?.en,
+    //     description: plan.description?.[language] || plan.description?.en,
+    //     features: plan.features?.map(
+    //       (feature: any) => feature?.[language] || feature?.en
+    //     ),
+    //     trialDays: plan.trialDays,
+    //     gbpAmount: plan.unitAmounts.eur / 100,
+    //     eurAmount: plan.unitAmounts.gbp / 100,
+    //     currency: Object.keys(plan.stripePrices),
+    //     _id: plan?._id,
+    //   };
+    // });
 
-    return translatedPlans;
+    return plans;
   },
 
   async setupIntent(payload: any) {
