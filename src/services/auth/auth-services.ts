@@ -38,7 +38,7 @@ export const authServices = {
         payload.email,
         "SIGNUP",
         "EMAIL",
-        payload.language,
+        payload.language || "en",
         "USER"
       );
     }

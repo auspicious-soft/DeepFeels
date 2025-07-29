@@ -107,8 +107,8 @@ export async function generateAndSendOtp(
           : customMessages[language]?.["subjectResetPassword"],
       react:
         purpose === "SIGNUP"
-          ? SignupVerification({ otp: otp, language: language })
-          : ForgotPasswordVerification({ otp: otp, language: language }),
+          ? SignupVerification({ otp: otp, language: "en" })
+          : ForgotPasswordVerification({ otp: otp, language: "en" }),
     });
   }
 
