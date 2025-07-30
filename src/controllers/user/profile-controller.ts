@@ -4,6 +4,7 @@ import { DailyReflectionModel } from "src/models/user/daily-reflection";
 import { TokenModel } from "src/models/user/token-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
+import { chatServices } from "src/services/chat-gpt/chat-service";
 import { journalServices } from "src/services/journal/journal-services";
 import { moodServices } from "src/services/mood/mood-service";
 import { profileServices } from "src/services/user/user-services";
@@ -309,8 +310,8 @@ export const getDailyReflection = async (req: Request, res: Response) => {
       dob: userInfo.dob.toISOString().split("T")[0],
       timeOfBirth: userInfo.timeOfBirth,
       location: userInfo.birthPlace,
-    });
-
+    }); 
+  
     const saved = await DailyReflectionModel.create({
       userId: user.id,
       date: today,
@@ -435,4 +436,52 @@ export const createOrUpdateMood = async (req: Request, res: Response) => {
       }
       return INTERNAL_SERVER_ERROR(res, req.body.language);
     }
+  };
+export const getMoodByUserId = async(req:Request,res:Response)=>{
+  try {
+    const user = req.user as any;
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      throw new Error("Month and year are required");
+    }
+
+    const moods = await moodServices.getMoodsByMonth(
+      user.id,
+      parseInt(month as string),
+      parseInt(year as string)
+    );
+
+    return res.status(200).json({ success: true, data: moods });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
+};
+export const streamChatWithGPT = async (req: Request, res: Response) => {
+  const user = req.user as any;
+  const { content } = req.body;
+
+  if (!content) {
+   throw new Error("Content is required")
+  }
+
+  try {
+    // Set stream headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    await chatServices.streamMessageToGPT(user.id, content, res);
+  } catch (error) {
+    console.error("Streaming error:", error);
+    if (!res.headersSent) {
+      throw new Error("Stream error occurred")
+    }
+    res.write(`data: ${JSON.stringify({ error: "Stream error occurred" })}\n\n`);
+    res.end();
+  }
+};

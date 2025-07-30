@@ -17,10 +17,10 @@ User Details:
 - Birth Location: ${data.location}
 
 Respond strictly in JSON format with the following keys:
-- title
-- reflection
-- groundingTip
-- mantra
+- title: A creative and meaningful title that summarizes the overall message of the day, inspired by the reflection, mantra, and grounding tip (do NOT use the user's name in the title).
+- reflection: The personalized daily astrological reflection.
+- groundingTip: A tip to stay grounded based on the reflection.
+- mantra: A short, powerful mantra that resonates with today's energy.
 `;
 
   const chatCompletion = await openai.chat.completions.create({

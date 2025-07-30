@@ -18,10 +18,12 @@ import {
   deleteAccount,
   getDailyReflection,
   getJournalByUserId,
+  getMoodByUserId,
   getNotificationSetting,
   getPlatformInfo,
   getUser,
   postNotificationSetting,
+  streamChatWithGPT,
   toggleJournalEncryption,
   updateJournal,
   updateSubscription,
@@ -53,7 +55,8 @@ paidRouter.put("/journal/:id", updateJournal)
 paidRouter.patch("/update-user", updateUser);
 paidRouter.post("/toggle/journal-encryption",toggleJournalEncryption)
 paidRouter.patch("/change-password", changePassword);
-paidRouter.post("/mood",createOrUpdateMood)
+paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
+paidRouter.route("/chat-gpt").post(streamChatWithGPT)
 // paidRouter.patch("/change-language", changeLanguage);
 // paidRouter.patch("/change-country", changeCountry);
 paidRouter.get("/get-platform-info", getPlatformInfo)
