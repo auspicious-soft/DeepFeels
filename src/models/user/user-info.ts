@@ -4,16 +4,16 @@ import { genders } from "src/utils/constant";
 export interface IUserInfo extends Document {
   userId: mongoose.Types.ObjectId;
   dob?: Date;
-  timeOfBirth?:string;
-  birthPlace?:string;
+  timeOfBirth?: string;
+  birthPlace?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  journalEncryption?:boolean;
-  gender?:string;
-  zodiacSign?:string;
-  sunSign?:string;
-  moonSign?:string;
-  birthStar?:string;
+  journalEncryption?: boolean;
+  gender?: string;
+  zodiacSign?: string;
+  sunSign?: string;
+  moonSign?: string;
+  birthStar?: string;
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -29,40 +29,38 @@ const userSchema = new Schema<IUserInfo>(
       default: null,
     },
     timeOfBirth: {
-      type:String,
-      default:null,
+      type: String,
+      default: null,
+    },
+    birthPlace: {
+      type: String,
+      default: null,
+    },
+    journalEncryption: {
+      type: Boolean,
+      default: false,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female"],
+    },
+    zodiacSign: {
+      type: String,
+      default: null,
+    },
+    sunSign: {
+      type: String,
+      default: null,
+    },
+    moonSign: {
+      type: String,
+      default: null,
+    },
+    birthStar: {
+      type: String,
+      default: null,
+    },
   },
-  birthPlace: {
-    type:String,
-    default:null,
-  },
-  journalEncryption:{
-    type: Boolean,
-    default: false,
-  },
-  gender:{
-    type:String,
-    enum:["male","female"],
-    required:true,
-  },
-  zodiacSign: { 
-    type: String,
-     default: null
-     },
-sunSign: { 
-  type: String,
-   default: null 
-  },
-moonSign: {
-   type: String, 
-   default: null
-   },
-birthStar: { 
-  type: String,
-   default: null
-   },
-
-},
   { timestamps: true }
 );
 
