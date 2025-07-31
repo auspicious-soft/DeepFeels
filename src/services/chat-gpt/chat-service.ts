@@ -32,7 +32,8 @@ export const chatServices = {
 - Full Name: ${user.fullName}
 - Date of Birth: ${userInfo.dob?.toISOString().split("T")[0]}
 - Time of Birth: ${userInfo.timeOfBirth}
-- Birth Location: ${userInfo.birthPlace}`,
+- Birth Location: ${userInfo.birthPlace}
+- Gender: ${userInfo.gender}`,
   };
 
   // Save current user message

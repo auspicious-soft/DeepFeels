@@ -271,7 +271,7 @@ export const authServices = {
   },
 
   async userMoreInfo(payload: any) {
-    const { timeOfBirth, birthPlace, dob, userData } = payload;
+    const { timeOfBirth, birthPlace, dob, gender,userData } = payload;
     const checkUser = await UserModel.findOne({
       _id: userData.id,
       isVerifiedEmail: true,
@@ -288,6 +288,7 @@ export const authServices = {
           birthPlace,
           timeOfBirth,
           dob,
+          gender,
         },
       },
       { new: true }

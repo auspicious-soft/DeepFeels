@@ -36,11 +36,10 @@ export const userProfile = async (req: Request, res: Response) => {
 export const getUser = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    req.body.language = userData.language || "en";
     const response = await profileServices.getUser({
       userData,
     });
-    return OK(res, response || {}, req.body.language);
+    return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language);

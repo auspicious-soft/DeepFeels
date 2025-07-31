@@ -33,6 +33,7 @@ export const profileServices = {
 
   getUser: async (payload: any) => {
     const { fullName, phone, email, countryCode, image } = payload.userData;
+    const user = await UserModel.findById(payload.userData.id).lean();
     const additionalInfo = await UserInfoModel.findOne({
       userId: payload.userData.id,
     }).lean();
@@ -41,13 +42,8 @@ export const profileServices = {
 
     return {
       _id: payload.userData.id,
-      image,
-      fullName,
-      phone,
-      email,
-      countryCode,
-      dob,
-      genders: genders,
+     user,
+      additionalInfo
     };
   },
 

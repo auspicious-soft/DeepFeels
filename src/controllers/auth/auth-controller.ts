@@ -197,15 +197,16 @@ export const resetPassword = async (req: Request, res: Response) => {
 export const userMoreInfo = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    const { birthPlace, dob, timeOfBirth } = req.body;
-    if (!birthPlace || !dob || !timeOfBirth) {
-      throw new Error("timeOfBirth, DOB, and birthPlace is required");
+    const { birthPlace, dob, timeOfBirth,gender } = req.body;
+    if (!birthPlace || !dob || !timeOfBirth || !gender) {
+      throw new Error("timeOfBirth, DOB, birthPlace and gender is required");
     }
 
     const response = await authServices.userMoreInfo({
       birthPlace,
       dob,
       timeOfBirth,
+      gender,
       userData: req.user,
     });
     return OK(res, response || {}, req.body.language || "en");
