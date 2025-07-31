@@ -39,7 +39,8 @@ router.get("/setup-intent", setupIntent);
 router.route("/plans").get(getPlans).post(buyPlan);
 router.get("/get-login-response", getLoginResponse);
 router.post("/logout", logoutUser);
-router.post("/buy-again", buyAgain)
+router.post("/buy-again", buyAgain);
+router.get("/get-user", getUser);
 
 const paidRouter = Router();
 
@@ -48,21 +49,23 @@ paidRouter.get("/home", userHome);
 
 // PROFILE
 paidRouter.get("/profile", userProfile);
-paidRouter.get("/get-user", getUser);
-paidRouter.get("/daily-reflection",getDailyReflection)
-paidRouter.route("/journal").post(createJournal).get(getJournalByUserId)
-paidRouter.put("/journal/:id", updateJournal)
+paidRouter.get("/daily-reflection", getDailyReflection);
+paidRouter.route("/journal").post(createJournal).get(getJournalByUserId);
+paidRouter.put("/journal/:id", updateJournal);
 paidRouter.patch("/update-user", updateUser);
-paidRouter.post("/toggle/journal-encryption",toggleJournalEncryption)
+paidRouter.post("/toggle/journal-encryption", toggleJournalEncryption);
 paidRouter.patch("/change-password", changePassword);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
-paidRouter.route("/chat-gpt").post(streamChatWithGPT)
+paidRouter.route("/chat-gpt").post(streamChatWithGPT);
 // paidRouter.patch("/change-language", changeLanguage);
 // paidRouter.patch("/change-country", changeCountry);
-paidRouter.get("/get-platform-info", getPlatformInfo)
-paidRouter.route("/notification-setting").get(getNotificationSetting).patch(postNotificationSetting)
-paidRouter.post("/delete-account", deleteAccount)
-paidRouter.post("/update-subscription", updateSubscription)
+paidRouter.get("/get-platform-info", getPlatformInfo);
+paidRouter
+  .route("/notification-setting")
+  .get(getNotificationSetting)
+  .patch(postNotificationSetting);
+paidRouter.post("/delete-account", deleteAccount);
+paidRouter.post("/update-subscription", updateSubscription);
 
 //============================== ADMIN Routes
 export { router, paidRouter };

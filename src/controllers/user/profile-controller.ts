@@ -36,6 +36,9 @@ export const userProfile = async (req: Request, res: Response) => {
 export const getUser = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
+
+    console.log(userData);
+
     const response = await profileServices.getUser({
       userData,
     });
@@ -51,8 +54,16 @@ export const updateUser = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
 
-    const { fullName,email,countryCode,phone,dob,timeOfBirth,birthPlace,image} =
-      req.body;
+    const {
+      fullName,
+      email,
+      countryCode,
+      phone,
+      dob,
+      timeOfBirth,
+      birthPlace,
+      image,
+    } = req.body;
 
     const response = await profileServices.updateUser({
       dob,
@@ -178,7 +189,8 @@ export const getNotificationSetting = async (req: Request, res: Response) => {
       userId: userData.id,
     }).lean();
 
-    return OK(res, response?.notificationSettings || {}, req.body.language);
+    // return OK(res, response?.notificationSettings || {}, req.body.language);
+    return OK(res, {}, req.body.language);
   } catch (err: any) {
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language);
@@ -309,8 +321,8 @@ export const getDailyReflection = async (req: Request, res: Response) => {
       dob: userInfo.dob.toISOString().split("T")[0],
       timeOfBirth: userInfo.timeOfBirth,
       location: userInfo.birthPlace,
-    }); 
-  
+    });
+
     const saved = await DailyReflectionModel.create({
       userId: user.id,
       date: today,
@@ -333,7 +345,7 @@ export const createJournal = async (req: Request, res: Response) => {
     const { title, content } = req.body;
 
     if (!title || !content) {
-    throw new Error("title and content are required");
+      throw new Error("title and content are required");
     }
     const date = new Date();
     const journal = await journalServices.createOrUpdateJournal({
@@ -371,7 +383,7 @@ export const updateJournal = async (req: Request, res: Response) => {
     const id = req.params.id;
     const { title, content } = req.body;
     if ([title, content].some((field) => !field || field.trim() === "")) {
-     throw new Error("title and content are required");
+      throw new Error("title and content are required");
     }
     const payload = {
       title,
@@ -383,7 +395,9 @@ export const updateJournal = async (req: Request, res: Response) => {
       payload
     );
     if (!journal) {
-      throw new Error("Journal not found or you do not have permission to update it");
+      throw new Error(
+        "Journal not found or you do not have permission to update it"
+      );
     }
     return res.status(200).json({ success: true, data: journal });
   } catch (error: any) {
@@ -394,21 +408,21 @@ export const updateJournal = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-export const toggleJournalEncryption = async(req:Request,res:Response)=>{
+export const toggleJournalEncryption = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any
-    const userInfo = await UserInfoModel.findOne({userId:user.id}).lean()
-    if(!userInfo){
-      throw new Error("user not found")
+    const user = req.user as any;
+    const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
+    if (!userInfo) {
+      throw new Error("user not found");
     }
     const updatedUserInfo = await UserInfoModel.findOneAndUpdate(
-      {userId:user.id},
-      {$set:{journalEncryption:!userInfo.journalEncryption}},
-      {new:true}
-    )
+      { userId: user.id },
+      { $set: { journalEncryption: !userInfo.journalEncryption } },
+      { new: true }
+    );
     return res.status(200).json({ success: true, data: updatedUserInfo });
-  } catch (error:any) {
-      console.error(error);
+  } catch (error: any) {
+    console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, req.body.language);
     }
@@ -416,27 +430,27 @@ export const toggleJournalEncryption = async(req:Request,res:Response)=>{
   }
 };
 export const createOrUpdateMood = async (req: Request, res: Response) => {
-    try {
-      const user = req.user as any;
-      const { mood } = req.body;
+  try {
+    const user = req.user as any;
+    const { mood } = req.body;
 
-      if (!mood) throw new Error("Mood is required");
+    if (!mood) throw new Error("Mood is required");
 
-      const result = await moodServices.createOrUpdateMood({
-        userId: user.id,
-        mood,
-      });
+    const result = await moodServices.createOrUpdateMood({
+      userId: user.id,
+      mood,
+    });
 
-      return res.status(200).json({ success: true, data: result });
-    } catch (error: any) {
-      console.error(error);
-      if (error.message) {
-        return BADREQUEST(res, error.message, req.body.language);
-      }
-      return INTERNAL_SERVER_ERROR(res, req.body.language);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
     }
-  };
-export const getMoodByUserId = async(req:Request,res:Response)=>{
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
+export const getMoodByUserId = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const { month, year } = req.query;
@@ -465,7 +479,7 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
   const { content } = req.body;
 
   if (!content) {
-   throw new Error("Content is required")
+    throw new Error("Content is required");
   }
 
   try {
@@ -478,9 +492,11 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Streaming error:", error);
     if (!res.headersSent) {
-      throw new Error("Stream error occurred")
+      throw new Error("Stream error occurred");
     }
-    res.write(`data: ${JSON.stringify({ error: "Stream error occurred" })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({ error: "Stream error occurred" })}\n\n`
+    );
     res.end();
   }
 };
