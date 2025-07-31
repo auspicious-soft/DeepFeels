@@ -52,7 +52,7 @@ export async function generateToken(user: IUser){
 
   const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
-  await TokenModel.deleteMany({userId: user._id})
+  // await TokenModel.deleteMany({userId: user._id})
   await TokenModel.create({
     token,
     userId: user._id,
