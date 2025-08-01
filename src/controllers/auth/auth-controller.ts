@@ -64,15 +64,14 @@ export const verifyOtp = async (req: Request, res: Response) => {
 };
 export const resendOtp = async (req: Request, res: Response) => {
   try {
-    const { value, purpose, language } = req.body;
-    if (!purpose || !value || !language) {
-      throw new Error("otp, purpose and language is required");
+    const { value, purpose } = req.body;
+    if (!purpose || !value ) {
+      throw new Error("otp, purpose is required");
     }
     const response = await authServices.resendOtp({
       purpose,
       value,
       userType: "USER",
-      language,
     });
     return OK(res, response || {}, req.body.language || "en", "otpResent");
   } catch (err: any) {

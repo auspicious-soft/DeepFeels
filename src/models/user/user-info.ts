@@ -14,6 +14,7 @@ export interface IUserInfo extends Document {
   sunSign?: string;
   moonSign?: string;
   birthStar?: string;
+  personalityKeywords?:string[]
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -60,6 +61,12 @@ const userSchema = new Schema<IUserInfo>(
       type: String,
       default: null,
     },
+    personalityKeywords:[
+      {
+        type: String,
+        default: [],
+      },
+    ]
   },
   { timestamps: true }
 );

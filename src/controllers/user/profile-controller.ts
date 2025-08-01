@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
+import { JwtPayload } from "jsonwebtoken";
 import { PlatformInfoModel } from "src/models/admin/platform-info-schema";
 import { DailyReflectionModel } from "src/models/user/daily-reflection";
 import { TokenModel } from "src/models/user/token-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { chatServices } from "src/services/chat-gpt/chat-service";
+import { generateCompatibilityResultService } from "src/services/compatibility/compatibility-services";
 import { journalServices } from "src/services/journal/journal-services";
 import { moodServices } from "src/services/mood/mood-service";
 import { profileServices } from "src/services/user/user-services";
@@ -498,5 +500,52 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
       `data: ${JSON.stringify({ error: "Stream error occurred" })}\n\n`
     );
     res.end();
+  }
+};
+export const getChatHistory = async (req: Request, res: Response) => {
+  const user = req.user as any;
+  const { limit } = req.query;
+
+  if (!limit) {
+    throw new Error("Content is required");
+  }
+
+  try {
+    const response = await chatServices.getUserChatHistory(user.id, (limit as any));
+    return res.status(200).json({ success: true, data: response });
+  } catch (error) {
+    console.error("Streaming error:", error);
+    if (!res.headersSent) {
+      throw new Error("Stream error occurred");
+    }
+    res.write(
+      `data: ${JSON.stringify({ error: "Stream error occurred" })}\n\n`
+    );
+    res.end();
+  }
+};
+
+export const generateCompatibilityController = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as JwtPayload;
+    const partner = req.body;
+
+    if (!partner) {
+      throw new Error("Partner details are required")
+    }
+
+    const result = await generateCompatibilityResultService(user.id, partner);
+
+    return res.status(200).json({
+      success: true,
+      message: "Compatibility result generated successfully",
+      data: result,
+    });
+  } catch (error: any) {
+   console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, "en");
   }
 };

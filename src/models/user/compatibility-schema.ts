@@ -2,7 +2,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 interface IAstroData {
-  zodiacMoonSign: string;
+  zodiacSign: string;
   personalityKeywords: string[];
   birthStar: string;
   sunSign: string;
@@ -42,7 +42,7 @@ interface ICompatibilityResult extends Document {
 }
 
 const compatibilitySchema = new Schema<ICompatibilityResult>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'user', required: true },
   partner: {
     firstName: String,
     lastName: String,

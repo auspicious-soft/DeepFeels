@@ -103,7 +103,7 @@ export const authServices = {
       payload.value,
       payload.purpose,
       "EMAIL",
-      payload.language,
+      "en",
       payload.userType
     );
     return {};

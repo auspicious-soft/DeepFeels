@@ -16,6 +16,8 @@ import {
   createJournal,
   createOrUpdateMood,
   deleteAccount,
+  generateCompatibilityController,
+  getChatHistory,
   getDailyReflection,
   getJournalByUserId,
   getMoodByUserId,
@@ -56,7 +58,8 @@ paidRouter.patch("/update-user", updateUser);
 paidRouter.post("/toggle/journal-encryption", toggleJournalEncryption);
 paidRouter.patch("/change-password", changePassword);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
-paidRouter.route("/chat-gpt").post(streamChatWithGPT);
+paidRouter.route("/chat-gpt").post(streamChatWithGPT).get(getChatHistory);
+paidRouter.post("/compatibility", generateCompatibilityController);
 // paidRouter.patch("/change-language", changeLanguage);
 // paidRouter.patch("/change-country", changeCountry);
 paidRouter.get("/get-platform-info", getPlatformInfo);

@@ -6,8 +6,6 @@ export interface IUser extends Document {
   email: string;
   password?: string;
   image?: string;
-  country?: "NL" | "BE" | "FR" | "UK" | "ES";
-  language?: "en" | "nl" | "fr" | "es";
   fcmToken?: string | null;
   authType: "EMAIL" | "GOOGLE" | "APPLE";
   countryCode?: string;

@@ -1,4 +1,5 @@
 
+import { Response } from "express";
 import { ChatCompletionMessageParam } from "openai/resources/chat";
 import { openai } from "src/config/openAi";
 import { chatModel } from "src/models/user/chat-schema";
@@ -13,7 +14,8 @@ export const chatServices = {
       .limit(limit)
       .lean();
 
-    return chats.reverse(); // return oldest → newest
+    // return chats.reverse(); // return oldest → newest
+    return chats
   },
 
   streamMessageToGPT: async (userId: string, content: string, res: Response) => {
@@ -26,7 +28,7 @@ export const chatServices = {
 
   if (!user || !userInfo) throw new Error("User or user info not found");
 
-  const userDetailsMessage = {
+  const userDetailsMessage : any = {
     role: "user",
     content: `User Details for astrological insight:
 - Full Name: ${user.fullName}
