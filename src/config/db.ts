@@ -1,5 +1,6 @@
 import { configDotenv } from "dotenv";
 import mongoose from "mongoose";
+import { startCronJob, testMoodCronJob } from "./cron";
 
 configDotenv(); 
 
@@ -11,6 +12,8 @@ const connectDB = async () => {
     try {
       await mongoose.connect(process.env.MONGO_URL as string);
       console.log("MongoDB connected 🚀");
+      startCronJob()
+      // testMoodCronJob()
     } catch (error: any) {
       attempt += 1;
       console.error(`MongoDB connection attempt ${attempt} failed: ${error.message}`);
