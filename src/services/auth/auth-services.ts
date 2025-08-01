@@ -87,27 +87,39 @@ export const authServices = {
   },
 
   async resendOtp(payload: any) {
-    if (payload.userType == "USER") {
-      const checkExist = await UserModel.findOne({
+  let checkExist;
+
+  if (payload.userType === "USER") {
+    if (payload.purpose === "SIGNUP") {
+      checkExist = await UserModel.findOne({
         $or: [{ email: payload.value }, { phone: payload.value }],
         isVerifiedEmail: false,
-        isVerifiedPhone: false,
+        // isVerifiedPhone: false,
       });
-
-      if (!checkExist) {
-        throw new Error("registerAgain");
-      }
+    } else if (payload.purpose === "FORGOT_PASSWORD") {
+      checkExist = await UserModel.findOne({
+        $or: [{ email: payload.value }, { phone: payload.value }],
+        isVerifiedEmail: true,
+        // isVerifiedPhone: false,
+      });
     }
 
-    await generateAndSendOtp(
-      payload.value,
-      payload.purpose,
-      "EMAIL",
-      "en",
-      payload.userType
-    );
-    return {};
-  },
+    if (!checkExist) {
+      throw new Error("registerAgain");
+    }
+  }
+
+  await generateAndSendOtp(
+    payload.value,
+    payload.purpose,
+    "EMAIL",
+    "en",
+    payload.userType
+  );
+
+  return {};
+},
+
 
   async login(payload: any) {
     const checkExist = await UserModel.findOne({
@@ -126,7 +138,7 @@ export const authServices = {
         checkExist.email,
         "SIGNUP",
         "EMAIL",
-        checkExist.language ?? "en",
+        "en",
         "USER"
       );
 
