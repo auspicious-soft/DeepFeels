@@ -103,26 +103,22 @@ export const login = async (req: Request, res: Response) => {
 };
 export const socialLogin = async (req: Request, res: Response) => {
   try {
-    const { authType, idToken, fcmToken, countryCode, language, deviceType } = req.body;
+    const { authType, idToken, fcmToken, deviceType } = req.body;
     if (
       !authType ||
       !idToken ||
       !fcmToken ||
-      !countryCode ||
-      !language ||
       !["GOOGLE", "APPLE"].includes(authType) ||
       !["ANDROID", "IOS"].includes(deviceType)
     ) {
       throw new Error(
-        "idToken, fcmToken, countryCode, language and Valid authType or deviceType is required"
+        "idToken, fcmToken, language and Valid authType or deviceType is required"
       );
     }
     const response = await authServices.socialLogin({
       authType,
       idToken,
       fcmToken,
-      countryCode,
-      language,
       deviceType
     });
     return OK(res, response || {}, req.body.language || "en", "loginSuccess");
