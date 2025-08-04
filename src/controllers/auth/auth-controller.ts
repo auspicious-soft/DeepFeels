@@ -12,7 +12,8 @@ import {
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, password,phoneNumber, countryCode, fcmToken } = req.body;
+    const { fullName, email, password, phoneNumber, countryCode, fcmToken } =
+      req.body;
     if (!fullName || !email || !password) {
       throw new Error("registerRequiredFields");
     }
@@ -45,8 +46,8 @@ export const registerUser = async (req: Request, res: Response) => {
 };
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    const { otp, value  } = req.body;
-    if (!otp || !value ) {
+    const { otp, value } = req.body;
+    if (!otp || !value) {
       throw new Error("otp and value  is required");
     }
     const response = await authServices.verifyOtp({
@@ -65,7 +66,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 export const resendOtp = async (req: Request, res: Response) => {
   try {
     const { value, purpose } = req.body;
-    if (!purpose || !value ) {
+    if (!purpose || !value) {
       throw new Error("otp, purpose is required");
     }
     const response = await authServices.resendOtp({
@@ -84,7 +85,7 @@ export const resendOtp = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password, fcmToken } = req.body;
-    if (!email || !password || !fcmToken ) {
+    if (!email || !password || !fcmToken) {
       throw new Error("Email, Password & FCM is required");
     }
     const response = await authServices.login({
@@ -112,14 +113,14 @@ export const socialLogin = async (req: Request, res: Response) => {
       !["ANDROID", "IOS"].includes(deviceType)
     ) {
       throw new Error(
-        "idToken, fcmToken, language and Valid authType or deviceType is required"
+        "idToken, fcmToken and Valid authType or deviceType is required"
       );
     }
     const response = await authServices.socialLogin({
       authType,
       idToken,
       fcmToken,
-      deviceType
+      deviceType,
     });
     return OK(res, response || {}, req.body.language || "en", "loginSuccess");
   } catch (err: any) {
@@ -133,7 +134,7 @@ export const socialLogin = async (req: Request, res: Response) => {
 export const forgetPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    if (!email ) {
+    if (!email) {
       throw new Error("Email is required");
     }
     const response = await authServices.forgetPassword({
@@ -169,7 +170,7 @@ export const verifyResetPasswordOtp = async (req: Request, res: Response) => {
 export const resetPassword = async (req: Request, res: Response) => {
   try {
     const { password } = req.body;
-    if (!password ) {
+    if (!password) {
       throw new Error("Password is required");
     }
     const token = req.headers.authorization?.split(" ")[1];
@@ -192,7 +193,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 export const userMoreInfo = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    const { birthPlace, dob, timeOfBirth,gender } = req.body;
+    const { birthPlace, dob, timeOfBirth, gender } = req.body;
     if (!birthPlace || !dob || !timeOfBirth || !gender) {
       throw new Error("timeOfBirth, DOB, birthPlace and gender is required");
     }
@@ -215,8 +216,7 @@ export const userMoreInfo = async (req: Request, res: Response) => {
 export const getPlans = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    const response = await authServices.getPlans({
-    });
+    const response = await authServices.getPlans({});
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
     if (err.message) {
