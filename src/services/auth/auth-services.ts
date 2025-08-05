@@ -291,17 +291,20 @@ export const authServices = {
     if (!checkUser) {
       throw new Error("userNotFound");
     }
+    // Dynamically build update object
+  const userInfoUpdate: { [key: string]: any } = {};
+
+  if (birthPlace) userInfoUpdate.birthPlace = birthPlace;
+  if (timeOfBirth !== undefined) userInfoUpdate.timeOfBirth = timeOfBirth;
+  if (dob) userInfoUpdate.dob = dob;
+  if (gender) userInfoUpdate.gender = gender;
+
     const data = await UserInfoModel.findOneAndUpdate(
       {
         userId: checkUser._id,
       },
       {
-        $set: {
-          birthPlace,
-          timeOfBirth,
-          dob,
-          gender,
-        },
+        $set: userInfoUpdate,
       },
       { new: true }
     );

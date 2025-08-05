@@ -194,7 +194,7 @@ export const userMoreInfo = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
     const { birthPlace, dob, timeOfBirth, gender } = req.body;
-    if (!birthPlace || !dob || !timeOfBirth || !gender) {
+    if (!birthPlace || !dob  || !gender) {
       throw new Error("timeOfBirth, DOB, birthPlace and gender is required");
     }
 
