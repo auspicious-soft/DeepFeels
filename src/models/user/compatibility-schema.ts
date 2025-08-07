@@ -17,7 +17,9 @@ interface ICompatibilityResult extends Document {
     dob: string;
     timeOfBirth: string;
     birthPlace: string;
+    relationshipType: string,
   };
+  relationshipType:string;
   result: {
     overallCompatibilityLabel: string;
     description: string;
@@ -50,6 +52,9 @@ const compatibilitySchema = new Schema<ICompatibilityResult>({
     dob: String,
     timeOfBirth: String,
     birthPlace: String,
+  },
+  relationshipType:{
+    type:String,
   },
   result: Schema.Types.Mixed,
 }, { timestamps: true });

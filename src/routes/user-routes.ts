@@ -15,14 +15,18 @@ import {
   changePassword,
   createJournal,
   createOrUpdateMood,
+  createSupportRequest,
   deleteAccount,
   generateCompatibilityController,
+  getAllUserCompatibility,
   getChatHistory,
+  getCompatibilityById,
   getDailyReflection,
   getJournalByUserId,
   getMoodByUserId,
   getNotificationSetting,
   getPlatformInfo,
+  getSupportRequests,
   getUser,
   postNotificationSetting,
   streamChatWithGPT,
@@ -59,7 +63,9 @@ paidRouter.post("/toggle/journal-encryption", toggleJournalEncryption);
 paidRouter.patch("/change-password", changePassword);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
 paidRouter.route("/chat-gpt").post(streamChatWithGPT).get(getChatHistory);
-paidRouter.post("/compatibility", generateCompatibilityController);
+paidRouter.route("/compatibility").post(generateCompatibilityController).get(getAllUserCompatibility)
+paidRouter.get("/compatibility/:id",getCompatibilityById)
+paidRouter.route("/support").post(createSupportRequest).get(getSupportRequests)
 // paidRouter.patch("/change-language", changeLanguage);
 // paidRouter.patch("/change-country", changeCountry);
 paidRouter.get("/get-platform-info", getPlatformInfo);

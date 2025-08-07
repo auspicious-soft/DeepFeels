@@ -21,6 +21,9 @@ Respond strictly in JSON format with the following keys:
 - reflection: The personalized daily astrological reflection.
 - groundingTip: A tip to stay grounded based on the reflection.
 - mantra: A short, powerful mantra that resonates with today's energy.
+- todayEnergy: A 1–2 sentence summary of the overall cosmic energy influencing the day.
+- emotionalTheme: A **short phrase** or **single sentence** capturing the dominant emotional tone of the day.
+- suggestedFocus: A **short phrase** or **single sentence** suggesting what the user should direct their attention or energy toward today.
 `;
 
   const chatCompletion = await openai.chat.completions.create({

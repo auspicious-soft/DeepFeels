@@ -1,21 +1,72 @@
 import { configDotenv } from "dotenv";
 import stripe from "src/config/stripe";
 import { planModel } from "src/models/admin/plan-schema";
+import { DailyReflectionModel } from "src/models/user/daily-reflection";
+import { moodModel } from "src/models/user/mood-schema";
 import { SubscriptionModel } from "src/models/user/subscription-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { genders } from "src/utils/constant";
+import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
 import { generateToken, hashPassword, verifyPassword } from "src/utils/helper";
 
 configDotenv();
 
 export const homeServices = {
   getUserHome: async (payload: any) => {
+    const user = payload.userData;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Get or generate daily reflection
+    let dailyReflection = await DailyReflectionModel.findOne({
+      userId: user.id,
+      date: today,
+    }).lean();
+
+    if (!dailyReflection) {
+      const userData = await UserModel.findById(user.id).lean();
+      const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
+
+      if (
+        userData?.fullName &&
+        userInfo?.dob &&
+        userInfo?.timeOfBirth &&
+        userInfo?.birthPlace
+      ) {
+        const generated = await generateReflectionWithGPT({
+          name: userData.fullName,
+          dob: userInfo.dob.toISOString().split("T")[0],
+          timeOfBirth: userInfo.timeOfBirth,
+          location: userInfo.birthPlace,
+        });
+
+        const saved = await DailyReflectionModel.create({
+          userId: user.id,
+          date: today,
+          ...generated,
+        });
+
+        dailyReflection = saved.toObject();
+      }
+    }
+
+    // 2. Get today’s mood (if available)
+    const startOfDay = new Date(today);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const moodDoc = await moodModel.findOne({
+      userId: user.id,
+      date: { $gte: startOfDay, $lte: endOfDay },
+    }).lean();
+
     return {
-      plan: payload.userData.subscription.planName || null,
-      milestone: 0,
-      percentage: 0,
-      tasks: [],
+      plan: user.subscription?.planName || null,
+      dailyReflection: dailyReflection || null,
+      mood: moodDoc ? { mood: moodDoc.mood, note: moodDoc.note || "" } : null,
+      moodNotSet: !moodDoc,
     };
   },
 };

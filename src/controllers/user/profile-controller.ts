@@ -6,9 +6,10 @@ import { TokenModel } from "src/models/user/token-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { chatServices } from "src/services/chat-gpt/chat-service";
-import { generateCompatibilityResultService } from "src/services/compatibility/compatibility-services";
+import { generateCompatibilityResultService, getAllUserCompatibilityService, getCompatibilityByIdService } from "src/services/compatibility/compatibility-services";
 import { journalServices } from "src/services/journal/journal-services";
 import { moodServices } from "src/services/mood/mood-service";
+import { supportService } from "src/services/support/support-services";
 import { profileServices } from "src/services/user/user-services";
 import { countries, languages } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
@@ -315,9 +316,9 @@ export const getDailyReflection = async (req: Request, res: Response) => {
       date: today,
     }).lean();
 
-    if (existing)
+    if (existing){
       return res.status(200).json({ success: true, data: existing });
-
+    }else{
     const generated = await generateReflectionWithGPT({
       name: userData.fullName,
       dob: userInfo.dob.toISOString().split("T")[0],
@@ -332,6 +333,7 @@ export const getDailyReflection = async (req: Request, res: Response) => {
     });
 
     return res.status(200).json({ success: true, data: saved });
+  }
   } catch (err: any) {
     console.error("Error generating reflection:", err);
     if (err.message) {
@@ -543,6 +545,75 @@ export const generateCompatibilityController = async (req: Request, res: Respons
     });
   } catch (error: any) {
    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, "en");
+  }
+};
+
+export const getAllUserCompatibility = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id 
+    const results = await getAllUserCompatibilityService(userId);
+    res.status(200).json({ success: true, data: results });
+  } catch (error : any) {
+   console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, "en");
+  }
+};
+
+export const getCompatibilityById = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    const { id } = req.params;
+    const result = await getCompatibilityByIdService(id, userId);
+    res.status(200).json({ success: true, data: result });
+  } catch (error : any) {
+     console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, "en");
+  }
+};
+export const createSupportRequest = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { fullName, email, subject, message } = req.body;
+
+    if (!fullName || !email || !subject || !message) {
+      throw new Error("All fields are required");
+    }
+
+    const result = await supportService.createSupportRequest({
+      userId: user.id,
+      fullName,
+      email,
+      subject,
+      message,
+    });
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, "en");
+  }
+};
+export const getSupportRequests = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const result = await supportService.getAllSupportRequests();
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (error: any) {
+     console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, "en");
     }

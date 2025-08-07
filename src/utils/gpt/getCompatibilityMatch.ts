@@ -20,13 +20,15 @@ export const getCompatibilityAnalysisFromGPT = async ({
   you,
   partner,
   partnerInfo,
+  relationshipType,
 }: {
   you: AstroData;
   partner: AstroData;
   partnerInfo: PartnerDetails;
+  relationshipType: string;
 }) => {
   const prompt = `
-You are a highly skilled Vedic astrologer. Based on the following astrological profiles, generate a structured and concise compatibility analysis.
+You are a highly skilled Vedic astrologer. Based on the following astrological profiles, generate a compatibility analysis **specifically for a ${relationshipType.toUpperCase()} relationship**.
 
 Your Astrological Data:
 - Sun Sign: ${you.sunSign}
@@ -41,6 +43,8 @@ Partner Astrological Data:
 - Moon Sign: ${partner.zodiacSign}
 - Birth Star: ${partner.birthStar}
 - Personality Keywords: ${partner.personalityKeywords.join(", ")}
+
+Relationship Context: ${relationshipType}
 
 Respond strictly in the following JSON format:
 

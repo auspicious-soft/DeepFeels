@@ -16,11 +16,11 @@ export const userHome = async (req: Request, res: Response) => {
     const response = await homeServices.getUserHome({
       userData,
     });
-    return OK(res, response || {}, req.body.language);
+    return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
     if (err.message) {
-      return BADREQUEST(res, err.message, req.body.language);
+      return BADREQUEST(res, err.message, req.body.language || "en");
     }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
+    return INTERNAL_SERVER_ERROR(res, req.body.language || "en");
   }
 };

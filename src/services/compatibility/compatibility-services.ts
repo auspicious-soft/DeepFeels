@@ -9,6 +9,7 @@ import { UserModel } from "src/models/user/user-schema";
 export const generateCompatibilityResultService = async (userId: string, partnerDetails: any) => {
   const userInfo = await UserInfoModel.findOne({ userId: new mongoose.Types.ObjectId(userId) });
   const userData = await UserModel.findById(userId).select("fullName");
+  const relationshipType = partnerDetails.relationshipType
   let userAstroData;
   if (userInfo?.dob && userInfo?.timeOfBirth && userInfo?.birthPlace) {
     // Check if astrological data exists in the userInfo (we assume it's stored under custom keys or added)
@@ -61,6 +62,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
     you: userAstroData,
     partner: partnerAstroData,
     partnerInfo: partnerDetails,
+    relationshipType
   });
 
   // Save to DB
@@ -68,9 +70,31 @@ export const generateCompatibilityResultService = async (userId: string, partner
     userId,
     partner: partnerDetails,
     result: compatibilityResult,
+    relationshipType
   });
 
   const compatibilityData = await CompatibilityResultModel.findById(saved._id).populate("userId" ,"-password -email -fcmToken").lean();
 
   return compatibilityData;
+};
+
+export const getAllUserCompatibilityService = async (userId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid userId");
+  }
+
+  return await CompatibilityResultModel.find({ userId }).sort({ createdAt: -1 });
+};
+
+export const getCompatibilityByIdService = async (id: string, userId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new Error("Invalid compatibility result ID");
+  }
+
+  const result = await CompatibilityResultModel.findOne({ _id: id, userId }).populate("userId","-password -fcmToken -stripeCustomerId")
+  if (!result) {
+    throw new Error("Compatibility result not found");
+  }
+
+  return result;
 };
