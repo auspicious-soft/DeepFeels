@@ -157,14 +157,23 @@ export const authServices = {
     checkExist.fcmToken = payload.fcmToken;
     checkExist.save();
 
+         let additionalInfo =[]
+        if(checkExist.isUserInfoComplete && checkExist.isCardSetupComplete){
+             additionalInfo = await UserInfoModel.findOne({
+          userId: checkExist._id,
+        }).lean();
+    
+        }
+
     const subscription = await SubscriptionModel.findOne({
       userId: checkExist._id,
     });
 
+
     const token = await generateToken(checkExist);
     const userObj = checkExist.toObject();
     delete userObj.password;
-    return { ...userObj, token, subscription: subscription?.status || null };
+    return { ...userObj, token, subscription: subscription?.status || null,additionalInfo:additionalInfo || null };
   },
   async socialLogin(payload: any) {
     const { idToken, fcmToken, authType, deviceType } = payload;
