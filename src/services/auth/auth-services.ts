@@ -157,12 +157,11 @@ export const authServices = {
     checkExist.fcmToken = payload.fcmToken;
     checkExist.save();
 
-         let additionalInfo =[]
+         let additionalInfo:any =[]
         if(checkExist.isUserInfoComplete && checkExist.isCardSetupComplete){
              additionalInfo = await UserInfoModel.findOne({
           userId: checkExist._id,
-        }).lean();
-    
+        }).lean();    
         }
 
     const subscription = await SubscriptionModel.findOne({
