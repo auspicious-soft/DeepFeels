@@ -22,6 +22,7 @@ import {
   OK,
   UNAUTHORIZED,
 } from "src/utils/response";
+import { SubscriptionModel } from "src/models/user/subscription-schema";
 
 export const userProfile = async (req: Request, res: Response) => {
   try {
@@ -661,3 +662,15 @@ export const getSupportRequests = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, "en");
   }
 };
+export const getSubscription = async(req:Request,res:Response)=>{
+  try {
+    const user = req.user as any
+    const subscription = await SubscriptionModel.findOne({userId:user.id})
+    if(!subscription){
+      throw new Error("No Subcription")
+    }
+  return res.status(200).json({success:true,data:subscription})
+  } catch (error) {
+    
+  }
+}

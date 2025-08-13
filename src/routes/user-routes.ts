@@ -26,6 +26,7 @@ import {
   getMoodByUserId,
   getNotificationSetting,
   getPlatformInfo,
+  getSubscription,
   getSupportRequests,
   getUser,
   postNotificationSetting,
@@ -68,6 +69,7 @@ paidRouter.get("/compatibility/:id",getCompatibilityById)
 paidRouter.route("/support").post(createSupportRequest).get(getSupportRequests)
 // paidRouter.patch("/change-language", changeLanguage);
 // paidRouter.patch("/change-country", changeCountry);
+paidRouter.get("/subscription",getSubscription)
 paidRouter.get("/get-platform-info", getPlatformInfo);
 paidRouter
   .route("/notification-setting")
