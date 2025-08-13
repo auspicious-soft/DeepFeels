@@ -15,6 +15,7 @@ import { SubscriptionModel } from "src/models/user/subscription-schema";
 import { TokenModel } from "src/models/user/token-schema";
 import { AdminModel } from "src/models/admin/admin-schema";
 import { OAuth2Client } from "google-auth-library";
+import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
 
 configDotenv();
 
@@ -164,6 +165,16 @@ export const authServices = {
         }).lean();    
         }
 
+         const journalEncryptionData = await JournalEncryptionModel.findOne(
+  { userId: checkExist._id },
+  { journalEncryptionPassword: 0 } // exclude password
+).lean();
+
+let journalEncryption = null;
+if (journalEncryptionData) {
+  journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+}
+
     const subscription = await SubscriptionModel.findOne({
       userId: checkExist._id,
     });
@@ -172,7 +183,7 @@ export const authServices = {
     const token = await generateToken(checkExist);
     const userObj = checkExist.toObject();
     delete userObj.password;
-    return { ...userObj, token, subscription: subscription?.status || null,additionalInfo:additionalInfo || null };
+    return { _id:userObj._id,user:userObj, token, subscription: subscription?.status || null,additionalInfo:additionalInfo || null,journalEncryption};
   },
   async socialLogin(payload: any) {
     const { idToken, fcmToken, authType, deviceType } = payload;

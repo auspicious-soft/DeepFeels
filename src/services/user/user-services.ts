@@ -1,6 +1,7 @@
 import { configDotenv } from "dotenv";
 import stripe from "src/config/stripe";
 import { planModel } from "src/models/admin/plan-schema";
+import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
 import { DailyReflectionModel } from "src/models/user/daily-reflection";
 import { moodModel } from "src/models/user/mood-schema";
 import { SubscriptionModel } from "src/models/user/subscription-schema";
@@ -94,11 +95,21 @@ export const profileServices = {
     }).lean();
 
     const { dob } = additionalInfo || {};
+         const journalEncryptionData = await JournalEncryptionModel.findOne(
+    { userId: payload.userData.id },
+    { journalEncryptionPassword: 0 } // exclude password
+  ).lean();
+  
+  let journalEncryption = null;
+  if (journalEncryptionData) {
+    journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+  }
 
     return {
       _id: payload.userData.id,
      user,
-      additionalInfo
+      additionalInfo,
+      journalEncryption
     };
   },
 
@@ -145,11 +156,21 @@ updateUser: async (payload: any) => {
     { $set: updatedUserData },
     { new: true }
   ).lean();
-
+  
+           const journalEncryptionData = await JournalEncryptionModel.findOne(
+    { userId: payload.id },
+    { journalEncryptionPassword: 0 } // exclude password
+  ).lean();
+  
+  let journalEncryption = null;
+  if (journalEncryptionData) {
+    journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+  }
   return {
     _id: payload.id,
     user,
-    additionalInfo
+    additionalInfo,
+    journalEncryption
   };
 },
 

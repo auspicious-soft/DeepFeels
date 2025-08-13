@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { JwtPayload } from "jsonwebtoken";
 import { PlatformInfoModel } from "src/models/admin/platform-info-schema";
+import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
 import { DailyReflectionModel } from "src/models/user/daily-reflection";
 import { TokenModel } from "src/models/user/token-schema";
 import { UserInfoModel } from "src/models/user/user-info";
@@ -13,6 +14,7 @@ import { supportService } from "src/services/support/support-services";
 import { profileServices } from "src/services/user/user-services";
 import { countries, languages } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
+import bcrypt from "bcryptjs";
 import {
   BADREQUEST,
   CREATED,
@@ -415,16 +417,55 @@ export const updateJournal = async (req: Request, res: Response) => {
 export const toggleJournalEncryption = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
-    if (!userInfo) {
-      throw new Error("user not found");
+    const { password } = req.body; // send password from frontend
+
+    let JournalEncryption = await JournalEncryptionModel.findOne({ userId: user.id });
+    // If encryption is OFF and turning it ON
+    if (!JournalEncryption) {
+      if (!password) throw new Error("Password is required to enable encryption");
+      JournalEncryption = new JournalEncryptionModel({
+        userId: user.id,
+        journalEncryptionPassword: password,
+        journalEncryption: true,
+      });
+      await JournalEncryption.save();
+      return res.status(200).json({ success: true, message: "Encryption enabled successfully" });
     }
-    const updatedUserInfo = await UserInfoModel.findOneAndUpdate(
-      { userId: user.id },
-      { $set: { journalEncryption: !userInfo.journalEncryption } },
-      { new: true }
-    );
-    return res.status(200).json({ success: true, data: updatedUserInfo });
+
+    // If encryption is ON and turning it OFF
+    // If encryption record exists
+    if (JournalEncryption.journalEncryption) {
+      // Currently ON, user wants to turn it OFF
+      const isMatch = await bcrypt.compare(password, JournalEncryption.journalEncryptionPassword || "");
+      if (!isMatch) {
+        throw new Error("Incorrect password");
+      }
+
+      JournalEncryption.journalEncryption = false;
+      await JournalEncryption.save();
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Encryption disabled successfully",
+        journalEncryption: false
+      });
+    } else {
+      // Currently OFF, user wants to turn it ON
+      const isMatch = await bcrypt.compare(password, JournalEncryption.journalEncryptionPassword || "");
+      if (!isMatch) {
+        throw new Error("Incorrect password");
+      }
+
+      JournalEncryption.journalEncryption = true;
+      await JournalEncryption.save();
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Encryption enabled successfully",
+        journalEncryption: true
+      });
+    }
+
   } catch (error: any) {
     console.error(error);
     if (error.message) {
