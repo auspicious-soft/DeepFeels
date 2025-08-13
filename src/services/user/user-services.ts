@@ -62,8 +62,12 @@ export const homeServices = {
       date: { $gte: startOfDay, $lte: endOfDay },
     }).lean();
 
+     const subscription = await SubscriptionModel.findOne({
+      userId: user.id,
+    });
+
     return {
-      plan: user.subscription?.planName || null,
+      plan: subscription?.status || null,
       dailyReflection: dailyReflection || null,
       mood: moodDoc ? { mood: moodDoc.mood, note: moodDoc.note || "" } : null,
       moodNotSet: !moodDoc,
@@ -129,7 +133,7 @@ updateUser: async (payload: any) => {
   }
 
   // Update UserInfo model
-  const userInfo = await UserInfoModel.findOneAndUpdate(
+  const additionalInfo = await UserInfoModel.findOneAndUpdate(
     { userId: payload.id },
     { $set: userUpdateInfo },
     { new: true }
@@ -144,14 +148,8 @@ updateUser: async (payload: any) => {
 
   return {
     _id: payload.id,
-    image: user?.image || "",
-    fullName: user?.fullName || "",
-    phone: user?.phone || "",
-    email: user?.email || "",
-    countryCode: user?.countryCode || "",
-    dob: userInfo?.dob || "",
-    timeOfBirth: userInfo?.timeOfBirth || "",
-    birthPlace: userInfo?.birthPlace || "",
+    user,
+    additionalInfo
   };
 },
 
