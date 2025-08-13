@@ -15,6 +15,8 @@ const JournalEncryptionSchema = new mongoose.Schema({
     type: String,
     default: null
   }
+},{
+  timestamps:true
 });
 
 // Pre-save hook to hash password if modified
