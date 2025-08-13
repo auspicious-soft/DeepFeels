@@ -230,7 +230,7 @@ updateUser: async (payload: any) => {
       await SubscriptionModel.findOneAndUpdate(
         {
           userId: userData.id,
-          status: { $or: ["active", "trialing"] },
+          status: { $in: ["active", "trialing"] },
         },
         {
           $set: {
@@ -246,6 +246,17 @@ updateUser: async (payload: any) => {
         {
           trial_end: "now",
           proration_behavior: "none",
+        }
+      );
+        await SubscriptionModel.findOneAndUpdate(
+        {
+          userId: userData.id,
+          status: { $in: ["active", "trialing"] },
+        },
+        {
+          $set: {
+            status: "canceling",
+          },
         }
       );
     }

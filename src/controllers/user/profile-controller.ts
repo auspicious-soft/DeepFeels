@@ -287,8 +287,9 @@ export const updateSubscription = async (req: Request, res: Response) => {
       userData,
     });
 
-    return OK(res, {}, req.body.language, "accountDeleted");
+    return OK(res, {}, req.body.language, response);
   } catch (err: any) {
+    console.log('err:', err);
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language);
     }
