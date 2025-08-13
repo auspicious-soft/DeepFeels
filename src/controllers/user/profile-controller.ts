@@ -420,9 +420,9 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
     const { password } = req.body; // send password from frontend
 
     let JournalEncryption = await JournalEncryptionModel.findOne({ userId: user.id });
+    if (!password) throw new Error("Password is required to enable encryption");
     // If encryption is OFF and turning it ON
     if (!JournalEncryption) {
-      if (!password) throw new Error("Password is required to enable encryption");
       JournalEncryption = new JournalEncryptionModel({
         userId: user.id,
         journalEncryptionPassword: password,
