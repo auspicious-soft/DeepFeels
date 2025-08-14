@@ -249,6 +249,20 @@ export const postNotificationSetting = async (req: Request, res: Response) => {
 export const deleteAccount = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
+    const {password} = req.body
+
+    if (password) {
+      // If password is provided, verify it
+      const user = await UserModel.findById(userData.id);
+      if (!user) {
+        return BADREQUEST(res, "User not found", "en");
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return BADREQUEST(res, "Invalid password", "en");
+      }
+    }
 
     await UserModel.findByIdAndUpdate(userData.id, {
       isDeleted: true,
@@ -263,9 +277,9 @@ export const deleteAccount = async (req: Request, res: Response) => {
     return OK(res, {}, req.body.language, "accountDeleted");
   } catch (err: any) {
     if (err.message) {
-      return BADREQUEST(res, err.message, req.body.language);
+      return BADREQUEST(res, err.message, "en");
     }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
+    return INTERNAL_SERVER_ERROR(res, "en");
   }
 };
 export const updateSubscription = async (req: Request, res: Response) => {
