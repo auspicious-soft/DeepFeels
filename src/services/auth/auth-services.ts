@@ -219,6 +219,12 @@ if (journalEncryptionData) {
         authType,
         isVerifiedEmail: true,
       });
+       await UserInfoModel.create({
+      userId: checkExist._id,
+      dob: null,
+      timeOfBirth: null,
+      birthPlace: null,
+    });
     }
 
     const token = await generateToken(checkExist);
