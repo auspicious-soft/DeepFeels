@@ -44,6 +44,7 @@ const userSchema = new Schema<IUserInfo>(
     gender: {
       type: String,
       enum: ["male", "female","other"],
+      default:null,
     },
     zodiacSign: {
       type: String,
