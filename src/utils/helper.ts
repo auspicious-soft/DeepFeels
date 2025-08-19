@@ -9,7 +9,8 @@ import { customMessages, SupportedLang } from "./messages";
 import { IUser } from "src/models/user/user-schema";
 import jwt from "jsonwebtoken";
 import { TokenModel } from "src/models/user/token-schema";
-
+import axios from "axios"
+import jwkToPem from "jwk-to-pem";
 
 configDotenv();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -113,4 +114,24 @@ export async function generateAndSendOtp(
   }
 
   return otp;
+}
+export async function verifyAppleToken(idToken: string) {
+  const appleKeys = await axios.get("https://appleid.apple.com/auth/keys");
+  console.log('appleKeys:', appleKeys);
+  const decodedHeader: any = jwt.decode(idToken, { complete: true })?.header;
+  console.log('decodedHeader:', decodedHeader);
+  const key = appleKeys.data.keys.find((k: any) => k.kid === decodedHeader.kid);
+
+  if (!key) throw new Error("Apple public key not found");
+
+  const pubKey = jwkToPem(key);
+  const payload: any = jwt.verify(idToken, pubKey, {
+    algorithms: ["RS256"],
+  });
+
+  if (payload.iss !== "https://appleid.apple.com") {
+    throw new Error("Invalid Apple token issuer");
+  }
+
+  return payload;
 }

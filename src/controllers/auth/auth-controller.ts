@@ -12,7 +12,7 @@ import {
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, password, phoneNumber, countryCode, fcmToken } =
+    const { fullName, email, password,image, phoneNumber, countryCode, fcmToken } =
       req.body;
     if (!fullName || !email || !password) {
       throw new Error("registerRequiredFields");
@@ -34,6 +34,7 @@ export const registerUser = async (req: Request, res: Response) => {
       authType: "EMAIL",
       fcmToken,
       phoneNumber,
+      image,
       ...req.body,
     });
     return CREATED(res, response || {}, req.body.language || "en");
@@ -104,7 +105,7 @@ export const login = async (req: Request, res: Response) => {
 };
 export const socialLogin = async (req: Request, res: Response) => {
   try {
-    const { authType, idToken, fcmToken, deviceType } = req.body;
+    const { authType, idToken, fcmToken,image, deviceType } = req.body;
     if (
       !authType ||
       !idToken ||
@@ -120,10 +121,12 @@ export const socialLogin = async (req: Request, res: Response) => {
       authType,
       idToken,
       fcmToken,
+      image,
       deviceType,
     });
     return OK(res, response || {}, req.body.language || "en", "loginSuccess");
   } catch (err: any) {
+    console.log('err:', err);
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language || "en");
     }
