@@ -10,8 +10,6 @@ import {
 } from "src/controllers/auth/auth-controller";
 import { userHome } from "src/controllers/user/home-controller";
 import {
-  changeCountry,
-  changeLanguage,
   changePassword,
   createJournal,
   createOrUpdateMood,
@@ -24,12 +22,10 @@ import {
   getDailyReflection,
   getJournalByUserId,
   getMoodByUserId,
-  getNotificationSetting,
   getPlatformInfo,
   getSubscription,
   getSupportRequests,
   getUser,
-  postNotificationSetting,
   streamChatWithGPT,
   toggleJournalEncryption,
   updateJournal,
@@ -71,10 +67,10 @@ paidRouter.route("/support").post(createSupportRequest).get(getSupportRequests)
 // paidRouter.patch("/change-country", changeCountry);
 paidRouter.get("/subscription",getSubscription)
 paidRouter.get("/get-platform-info", getPlatformInfo);
-paidRouter
-  .route("/notification-setting")
-  .get(getNotificationSetting)
-  .patch(postNotificationSetting);
+// paidRouter
+//   .route("/notification-setting")
+//   .get(getNotificationSetting)
+//   .patch(postNotificationSetting);
 paidRouter.post("/delete-account", deleteAccount);
 paidRouter.post("/update-subscription", updateSubscription);
 

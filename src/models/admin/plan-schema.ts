@@ -4,9 +4,6 @@ import mongoose, { Schema, Document } from "mongoose";
 
 interface TranslatedText {
   en?: string;
-  nl?: string;
-  fr?: string;
-  es?: string;
 }
 
 interface BenefitObject {
@@ -36,10 +33,7 @@ export interface IPlan extends Document {
   features: TranslatedText[];
   trialDays: number;
   stripeProductId: string;
-  stripePrices: {
-    eur: string;
-    gbp: string;
-  };
+  stripePrices: string;
   amounts: number;
 
   fullAccess: BenefitObject;

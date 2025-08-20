@@ -664,7 +664,7 @@ async buyPlan(payload: any) {
       // Create new Stripe subscription
       const subscription = await stripe.subscriptions.create({
         customer: checkSub.stripeCustomerId,
-        items: [{ price: planData?.stripePrices[currency as "eur" | "gbp"] }],
+        items: [{ price: planData?.stripePrices }],
         default_payment_method: paymentMethodId,
         expand: ["latest_invoice.payment_intent"],
       });

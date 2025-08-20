@@ -1,4 +1,5 @@
 import { configDotenv } from "dotenv";
+import mongoose from "mongoose";
 import stripe from "src/config/stripe";
 import { planModel } from "src/models/admin/plan-schema";
 import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
@@ -197,20 +198,6 @@ updateUser: async (payload: any) => {
 
     return {};
   },
-  changeLanguage: async (payload: any) => {
-    const { id, language } = payload;
-    const user = await UserModel.findByIdAndUpdate(
-      id,
-      { $set: { language } },
-      { new: true }
-    );
-    let updatedToken;
-    if (user) {
-      updatedToken = await generateToken(user);
-    }
-
-    return { token: updatedToken || null };
-  },
   changeCountry: async (payload: any) => {
     const { id, country } = payload;
     await UserModel.findByIdAndUpdate(id, { $set: { country } });
@@ -218,29 +205,43 @@ updateUser: async (payload: any) => {
   },
 
   updatePlan: async (payload: any) => {
+     const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const toDate = (timestamp?: number | null): Date | null =>
+      typeof timestamp === "number" && !isNaN(timestamp)
+        ? new Date(timestamp * 1000)
+        : null;
+
     const { type, planId, userData } = payload;
-    if (type == "cancelSubscription") {
+    const { stripeCustomerId, currency, paymentMethodId, status } =
+      userData.subscription;
+
+    /** Cancel Trial (only if trialing) */
+    if (type === "cancelTrial" && status !== "trialing") {
+      throw new Error("Your subscription is not trialing");
+    }
+
+    /** Cancel full subscription */
+    if (type === "cancelSubscription") {
       await stripe.subscriptions.update(
         userData.subscription.stripeSubscriptionId,
-        {
-          cancel_at_period_end: true,
-        }
+        { cancel_at_period_end: true }
       );
 
       await SubscriptionModel.findOneAndUpdate(
         {
           userId: userData.id,
-          status: { $in: ["active", "trialing"] },
+          $or: [{ status: "active" }, { status: "trialing" }],
         },
-        {
-          $set: {
-            status: "canceling",
-          },
-        }
+        { $set: { status: "canceling" } },
+        { session }
       );
     }
 
-    if (type == "cancelTrial") {
+    /** Cancel Trial Immediately (no new plan) */
+    if (type === "cancelTrial" && !planId) {
       await stripe.subscriptions.update(
         userData.subscription.stripeSubscriptionId,
         {
@@ -248,39 +249,82 @@ updateUser: async (payload: any) => {
           proration_behavior: "none",
         }
       );
-        await SubscriptionModel.findOneAndUpdate(
-        {
-          userId: userData.id,
-          status: { $in: ["active", "trialing"] },
-        },
-        {
-          $set: {
-            status: "canceling",
+    }
+
+    /** Cancel Trial + Start New Plan */
+    if (type === "cancelTrial" && planId) {
+      // cancel existing subscription
+      await stripe.subscriptions.cancel(
+        userData.subscription.stripeSubscriptionId
+      );
+
+      await SubscriptionModel.findByIdAndDelete(userData.subscription._id, {
+        session,
+      });
+
+      const planData = await planModel.findById(planId).session(session);
+      if (!planData) throw new Error("Plan not found");
+
+      const newSub = await stripe.subscriptions.create({
+        customer: typeof stripeCustomerId === "string"
+          ? stripeCustomerId
+          : stripeCustomerId?.id ?? "",
+        items: [{ price: planData.stripePrices }],
+        default_payment_method: paymentMethodId,
+        expand: ["latest_invoice.payment_intent"],
+      });
+
+      const newSubPrice = newSub.items.data[0]?.price;
+      if (!newSubPrice) throw new Error("New subscription price not found");
+
+      // ✅ Schema-aligned subscription creation
+      await SubscriptionModel.create(
+        [
+          {
+            userId: userData.id,
+            stripeCustomerId,
+            stripeSubscriptionId: newSub.id,
+            planId,
+            paymentMethodId,
+            status: newSub.status,
+            trialStart: toDate(newSub.trial_start),
+            trialEnd: toDate(newSub.trial_end),
+            startDate: toDate(newSub.start_date) ?? new Date(),
+            currentPeriodStart: toDate(newSub.current_period_start),
+            currentPeriodEnd: toDate(newSub.current_period_end),
+            nextBillingDate: toDate(newSub.current_period_end),
+            amount: newSubPrice.unit_amount
+              ? newSubPrice.unit_amount / 100
+              : 0,
+            currency: newSubPrice.currency ?? currency,
+            nextPlanId: null,
           },
-        }
+        ],
+        { session }
       );
     }
 
-    if (type == "upgrade") {
+    /** Upgrade (schedule new plan after current ends) */
+    if (type === "upgrade") {
       await stripe.subscriptions.update(
         userData.subscription.stripeSubscriptionId,
-        {
-          cancel_at_period_end: true,
-        }
+        { cancel_at_period_end: true }
       );
 
       await SubscriptionModel.findOneAndUpdate(
-        {
-          userId: userData.id,
-        },
-        {
-          $set: {
-            nextPlanId: planId,
-          },
-        }
+        { userId: userData.id },
+        { $set: { nextPlanId: planId } },
+        { session }
       );
     }
 
-    return {};
-  },
+    await session.commitTransaction();
+    return { success: true };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+}
 };

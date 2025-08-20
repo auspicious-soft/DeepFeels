@@ -12,7 +12,6 @@ import { journalServices } from "src/services/journal/journal-services";
 import { moodServices } from "src/services/mood/mood-service";
 import { supportService } from "src/services/support/support-services";
 import { profileServices } from "src/services/user/user-services";
-import { countries, languages } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
 import bcrypt from "bcryptjs";
 import {
@@ -114,50 +113,28 @@ export const changePassword = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-export const changeLanguage = async (req: Request, res: Response) => {
-  try {
-    const userData = req.user as any;
-    const { updatedLanguage } = req.body;
 
-    if (!languages.includes(updatedLanguage)) {
-      throw new Error("invalidFields");
-    }
+//   try {
+//     const userData = req.user as any;
+//     const { country } = req.body;
 
-    const response = await profileServices.changeLanguage({
-      id: userData.id,
-      language: updatedLanguage,
-    });
+//     if (!countries.includes(country)) {
+//       throw new Error("invalidFields");
+//     }
 
-    return OK(res, response || {}, req.body.language);
-  } catch (err: any) {
-    if (err.message) {
-      return BADREQUEST(res, err.message, req.body.language);
-    }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
-  }
-};
-export const changeCountry = async (req: Request, res: Response) => {
-  try {
-    const userData = req.user as any;
-    const { country } = req.body;
+//     const response = await profileServices.changeCountry({
+//       id: userData.id,
+//       country,
+//     });
 
-    if (!countries.includes(country)) {
-      throw new Error("invalidFields");
-    }
-
-    const response = await profileServices.changeCountry({
-      id: userData.id,
-      country,
-    });
-
-    return OK(res, response || {}, req.body.language);
-  } catch (err: any) {
-    if (err.message) {
-      return BADREQUEST(res, err.message, req.body.language);
-    }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
-  }
-};
+//     return OK(res, response || {}, req.body.language);
+//   } catch (err: any) {
+//     if (err.message) {
+//       return BADREQUEST(res, err.message, req.body.language);
+//     }
+//     return INTERNAL_SERVER_ERROR(res, req.body.language);
+//   }
+// };
 export const getPlatformInfo = async (req: Request, res: Response) => {
   try {
     const key = req.query.key as string;
@@ -187,65 +164,65 @@ export const getPlatformInfo = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-export const getNotificationSetting = async (req: Request, res: Response) => {
-  try {
-    const userData = req.user as any;
+// export const getNotificationSetting = async (req: Request, res: Response) => {
+//   try {
+//     const userData = req.user as any;
 
-    const response = await UserInfoModel.findOne({
-      userId: userData.id,
-    }).lean();
+//     const response = await UserInfoModel.findOne({
+//       userId: userData.id,
+//     }).lean();
 
-    // return OK(res, response?.notificationSettings || {}, req.body.language);
-    return OK(res, {}, req.body.language);
-  } catch (err: any) {
-    if (err.message) {
-      return BADREQUEST(res, err.message, req.body.language);
-    }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
-  }
-};
-export const postNotificationSetting = async (req: Request, res: Response) => {
-  try {
-    const userData = req.user as any;
-    const {
-      jobAlerts,
-      tasksPortfolioProgress,
-      profilePerformance,
-      engagementMotivation,
-    } = req.body;
-    if (
-      typeof jobAlerts !== "boolean" ||
-      typeof tasksPortfolioProgress !== "boolean" ||
-      typeof profilePerformance !== "boolean" ||
-      typeof engagementMotivation !== "boolean"
-    ) {
-      throw new Error("invalidFields");
-    }
-    const response = await UserInfoModel.findOneAndUpdate(
-      { userId: userData.id },
-      {
-        $set: {
-          notificationSettings: {
-            jobAlerts,
-            tasksPortfolioProgress,
-            profilePerformance,
-            engagementMotivation,
-          },
-        },
-      },
-      {
-        new: true,
-      }
-    );
+//     // return OK(res, response?.notificationSettings || {}, req.body.language);
+//     return OK(res, {}, req.body.language);
+//   } catch (err: any) {
+//     if (err.message) {
+//       return BADREQUEST(res, err.message, req.body.language);
+//     }
+//     return INTERNAL_SERVER_ERROR(res, req.body.language);
+//   }
+// };
+// export const postNotificationSetting = async (req: Request, res: Response) => {
+//   try {
+//     const userData = req.user as any;
+//     const {
+//       jobAlerts,
+//       tasksPortfolioProgress,
+//       profilePerformance,
+//       engagementMotivation,
+//     } = req.body;
+//     if (
+//       typeof jobAlerts !== "boolean" ||
+//       typeof tasksPortfolioProgress !== "boolean" ||
+//       typeof profilePerformance !== "boolean" ||
+//       typeof engagementMotivation !== "boolean"
+//     ) {
+//       throw new Error("invalidFields");
+//     }
+//     const response = await UserInfoModel.findOneAndUpdate(
+//       { userId: userData.id },
+//       {
+//         $set: {
+//           notificationSettings: {
+//             jobAlerts,
+//             tasksPortfolioProgress,
+//             profilePerformance,
+//             engagementMotivation,
+//           },
+//         },
+//       },
+//       {
+//         new: true,
+//       }
+//     );
 
-    return OK(res, response?.notificationSettings || {}, req.body.language);
-  } catch (err: any) {
-    if (err.message) {
-      return BADREQUEST(res, err.message, req.body.language);
-    }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
-  }
-};
+//     return OK(res, response?.notificationSettings || {}, req.body.language);
+//   } catch (err: any) {
+//     if (err.message) {
+//       return BADREQUEST(res, err.message, req.body.language);
+//     }
+//     return INTERNAL_SERVER_ERROR(res, req.body.language);
+//   }
+// };
 export const deleteAccount = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
@@ -257,7 +234,10 @@ export const deleteAccount = async (req: Request, res: Response) => {
       if (!user) {
         return BADREQUEST(res, "User not found", "en");
       }
-
+     if (!user.password) {
+    // This account was created via OAuth, so password-based delete is not valid
+      return BADREQUEST(res, "This account does not have a password", "en");
+     }
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         return BADREQUEST(res, "Invalid password", "en");
@@ -274,7 +254,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
 
     //Need to write cancel subscripiton code as well
 
-    return OK(res, {}, req.body.language, "accountDeleted");
+    return OK(res, {}, "en", "accountDeleted");
   } catch (err: any) {
     if (err.message) {
       return BADREQUEST(res, err.message, "en");
@@ -677,15 +657,50 @@ export const getSupportRequests = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, "en");
   }
 };
-export const getSubscription = async(req:Request,res:Response)=>{
+export const getSubscription = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any
-    const subscription = await SubscriptionModel.findOne({userId:user.id})
-    if(!subscription){
-      throw new Error("No Subcription")
+    const user = req.user as any;
+
+    // Fetch subscription
+    const subscription = await SubscriptionModel.findOne({ userId: user.id }).lean();
+    if (!subscription) {
+      throw new Error("No Subscription");
     }
-  return res.status(200).json({success:true,data:subscription})
-  } catch (error) {
-    
+
+    // Fetch user flags
+    const userDoc = await UserModel.findById(user.id).select("hasUsedTrial").lean();
+
+    const now = new Date();
+    const isTrial =
+      subscription.status === "trialing" ||
+      (subscription.trialEnd && subscription.trialEnd > now);
+
+    const trialEndsOn = isTrial ? subscription.trialEnd : null;
+
+    const expiresOn = subscription.currentPeriodEnd || subscription.nextBillingDate || null;
+
+    // e.g., expiring in next 7 days
+    const isExpiringSoon =
+      expiresOn !== null &&
+      expiresOn.getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        subscription,
+        flags: {
+          isTrial,
+          trialEndsOn,
+          hasUsedTrial: userDoc?.hasUsedTrial ?? false,
+          isExpiringSoon,
+          expiresOn,
+        },
+      },
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Something went wrong",
+    });
   }
-}
+};
