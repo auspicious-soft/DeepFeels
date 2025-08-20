@@ -44,8 +44,7 @@ export async function generateToken(user: IUser){
     phone: user.phone || null,
     fullName: user.fullName,
     image: user.image,
-    country: user.country,
-    language: user.language || "en",
+    language: "en",
     countryCode: user.countryCode,
   };
 

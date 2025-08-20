@@ -266,6 +266,7 @@ export const buyPlan = async (req: Request, res: Response) => {
     });
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
+    console.log('err:', err);
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language || "en");
     }
