@@ -497,217 +497,134 @@ export const authServices = {
     };
   },
 
-  async buyPlan(payload: any) {
-    const { planId, currency, id, paymentMethodId, freeTrial } = payload;
+ async buyPlan(payload: any) {
+  const { planId, currency, id, paymentMethodId, freeTrial } = payload;
 
-    // 1. Find plan
-    const plans = await planModel
-      .findOne({ _id: planId, isActive: true })
-      .lean();
-    if (!plans) throw new Error("planNotFound");
+  // 1. Find plan
+  const plans = await planModel
+    .findOne({ _id: planId, isActive: true })
+    .lean();
+  if (!plans) throw new Error("planNotFound");
 
-    // 2. Get Stripe product
-    const stripeProduct = await stripe.products.retrieve(plans.stripeProductId);
-    if (!stripeProduct) throw new Error("planNotFound");
+  // 2. Get Stripe product
+  const stripeProduct = await stripe.products.retrieve(plans.stripeProductId);
+  if (!stripeProduct) throw new Error("planNotFound");
 
-    // 3. Get price in requested currency
-    const priceList = await stripe.prices.list({
-      product: stripeProduct.id,
-      active: true,
-      limit: 10,
-    });
-    const productPrice = priceList?.data?.find(
-      (price) => price.currency === currency
-    );
-    if (!productPrice) throw new Error("invalidCurrency");
+  // 3. Get price in requested currency
+  const priceList = await stripe.prices.list({
+    product: stripeProduct.id,
+    active: true,
+    limit: 10,
+  });
+  const productPrice = priceList?.data?.find(
+    (price) => price.currency === currency
+  );
+  if (!productPrice) throw new Error("invalidCurrency");
 
-    // 4. Check user & active plan
-    const user = await UserModel.findById(id);
-    if (!user?.stripeCustomerId) throw new Error("stripeCustomerIdNotFound");
+  // 4. Check user & active plan
+  const user = await UserModel.findById(id);
+  if (!user?.stripeCustomerId) throw new Error("stripeCustomerIdNotFound");
 
-    const activePlan = await SubscriptionModel.findOne({
-      userId: id,
-      status: "active",
-    });
-    if (activePlan) throw new Error("activePlanExist");
+  const activePlan = await SubscriptionModel.findOne({
+    userId: id,
+    status: "active",
+  });
+  if (activePlan) throw new Error("activePlanExist");
 
-    // 5. Create subscription
-    let createdSub;
-    if (freeTrial && !user.hasUsedTrial) {
-      createdSub = await stripe.subscriptions.create({
+ 
+  if (freeTrial && !user.hasUsedTrial) {
+    const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
         items: [{ price: productPrice.id }],
         trial_period_days: plans.trialDays,
         default_payment_method: paymentMethodId,
-        expand: ["latest_invoice.payment_intent", "items.data.price"],
+        expand: ["latest_invoice.payment_intent"],
       });
-    } else {
-      // For non-trial subscriptions, create subscription normally
-      createdSub = await stripe.subscriptions.create({
+
+      user.hasUsedTrial = true;
+      user.isCardSetupComplete = true;
+      await user.save();
+
+      // Convert Unix timestamps to Date objects
+      const trialStart = subscription.trial_start
+        ? new Date(subscription.trial_start * 1000)
+        : null;
+      const trialEnd = subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
+        : null;
+      const startDate = new Date(subscription.start_date * 1000);
+      const currentPeriodStart = subscription.current_period_start
+        ? new Date(subscription.current_period_start * 1000)
+        : null;
+      const currentPeriodEnd = subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000)
+        : null;
+      const nextBillingDate = currentPeriodEnd;
+
+      // Save to DB
+      await SubscriptionModel.create({
+        userId: id,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: subscription.id,
+        planId,
+        paymentMethodId,
+        status: subscription.status,
+        trialStart,
+        trialEnd,
+        startDate,
+        currentPeriodStart,
+        currentPeriodEnd,
+        nextBillingDate,
+        amount: subscription.items.data[0].price.unit_amount,
+        currency: subscription.currency,
+      });
+
+      return {
+        subscriptionId: subscription.id,
+      };
+  } else {
+    const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
         items: [{ price: productPrice.id }],
         default_payment_method: paymentMethodId,
-        expand: ["latest_invoice.payment_intent", "items.data.price"],
-      });
-    }
-
-    // 6. Wait for invoice to be finalized and retrieve subscription with retry logic
-    let subscription;
-    let retryCount = 0;
-    const maxRetries = 5;
-
-    do {
-      if (retryCount > 0) {
-        // Wait progressively longer for each retry
-        await new Promise((r) => setTimeout(r, 500 * retryCount));
-      }
-
-      subscription = await stripe.subscriptions.retrieve(createdSub.id, {
-        expand: ["latest_invoice.payment_intent", "items.data.price"],
+        expand: ["latest_invoice.payment_intent"],
       });
 
-      // Also check if the latest invoice is finalized
-      if (
-        subscription.latest_invoice &&
-        typeof subscription.latest_invoice === "object"
-      ) {
-        const invoice = subscription.latest_invoice;
-        // If invoice is not finalized, wait a bit more
-        if (invoice.status === "draft" || invoice.status === "open") {
-          retryCount++;
-          continue;
-        }
-      }
+      user.hasUsedTrial = true;
+      user.isCardSetupComplete = true;
+      await user.save();
 
-      retryCount++;
-    } while (
-      (!subscription.current_period_start ||
-        !subscription.current_period_end) &&
-      retryCount < maxRetries
-    );
-
-    // 7. Handle period dates based on subscription status
-    let currentPeriodStart = null;
-    let currentPeriodEnd = null;
-    let nextBillingDate = null;
-    let startDate = null;
-    // Only set billing periods if subscription is not in trial
-    if (subscription.status !== "trialing") {
-      startDate = new Date(subscription.start_date * 1000);
-      currentPeriodStart = subscription.current_period_start
+      const startDate = new Date(subscription.start_date * 1000);
+      const currentPeriodStart = subscription.current_period_start
         ? new Date(subscription.current_period_start * 1000)
         : null;
-      currentPeriodEnd = subscription.current_period_end
+      const currentPeriodEnd = subscription.current_period_end
         ? new Date(subscription.current_period_end * 1000)
         : null;
+      const nextBillingDate = currentPeriodEnd;
 
-      // Fallback calculation if Stripe hasn't set the periods yet (for non-trial subscriptions)
-      if (!currentPeriodStart || !currentPeriodEnd) {
-        const now = new Date();
-        currentPeriodStart = now;
+      await SubscriptionModel.findOneAndDelete({ userId: id });
 
-        // Calculate period end based on price interval
-        const interval = productPrice.recurring?.interval;
-        const intervalCount = productPrice.recurring?.interval_count || 1;
+      await SubscriptionModel.create({
+        userId: id,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: subscription.id,
+        planId,
+        paymentMethodId,
+        status: subscription.status,
+        startDate,
+        currentPeriodStart,
+        currentPeriodEnd,
+        nextBillingDate,
+        amount: subscription.items.data[0].price.unit_amount,
+        currency: subscription.currency,
+      });
 
-        switch (interval) {
-          case "month":
-            currentPeriodEnd = new Date(
-              now.getFullYear(),
-              now.getMonth() + intervalCount,
-              now.getDate()
-            );
-            break;
-          case "year":
-            currentPeriodEnd = new Date(
-              now.getFullYear() + intervalCount,
-              now.getMonth(),
-              now.getDate()
-            );
-            break;
-          case "week":
-            currentPeriodEnd = new Date(
-              now.getTime() + 7 * 24 * 60 * 60 * 1000 * intervalCount
-            );
-            break;
-          case "day":
-            currentPeriodEnd = new Date(
-              now.getTime() + 24 * 60 * 60 * 1000 * intervalCount
-            );
-            break;
-          default:
-            // Default to 1 month if interval is not recognized
-            currentPeriodEnd = new Date(
-              now.getFullYear(),
-              now.getMonth() + 1,
-              now.getDate()
-            );
-        }
-      }
-
-      nextBillingDate = currentPeriodEnd;
-    } else {
-      // For trial subscriptions, next billing date is when trial ends
-      nextBillingDate = subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
-        : null;
-    }
-
-    // 8. Mark user trial usage & card setup
-    user.hasUsedTrial = true;
-    user.isCardSetupComplete = true;
-    await user.save();
-
-    // 9. Convert Unix timestamps to Date objects
-    const trialStart = subscription.trial_start
-      ? new Date(subscription.trial_start * 1000)
-      : null;
-    const trialEnd = subscription.trial_end
-      ? new Date(subscription.trial_end * 1000)
-      : null;
-
-    // 10. Save to DB
-    await SubscriptionModel.create({
-      userId: id,
-      stripeCustomerId: user.stripeCustomerId,
-      stripeSubscriptionId: subscription.id,
-      planId,
-      paymentMethodId,
-      status: subscription.status,
-      trialStart,
-      trialEnd,
-      startDate,
-      currentPeriodStart,
-      currentPeriodEnd,
-      nextBillingDate,
-      amount: subscription.items.data[0].price.unit_amount,
-      currency: subscription.currency,
-    });
-    let additionalInfo: any = [];
-    if (user.isUserInfoComplete && user.isCardSetupComplete) {
-      additionalInfo = await UserInfoModel.findOne({
-        userId: user._id,
-      }).lean();
-    }
-
-    const journalEncryptionData = await JournalEncryptionModel.findOne(
-      { userId: user._id },
-      { journalEncryptionPassword: 0 } // exclude password
-    ).lean();
-
-    let journalEncryption = null;
-    if (journalEncryptionData) {
-      journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
-    }
-
-    return {
-      _id: user._id,
-      user: user,
-      subscriptionId: subscription.id,
-      additionalInfo: additionalInfo || null,
-      journalEncryption,
-    };
-  },
+      return {
+        subscriptionId: subscription.id,
+      };
+  }
+},
 
   async getLoginResponse(payload: any) {
     const { userId } = payload;
@@ -753,6 +670,7 @@ export const authServices = {
 
       // Delete old subscription (inside session)
       await SubscriptionModel.findByIdAndDelete(checkSub._id, { session });
+      console.log('checkSub._id:', checkSub._id);
 
       // Insert new subscription (inside session)
       await SubscriptionModel.create(

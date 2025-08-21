@@ -249,6 +249,7 @@ export const planServices = {
         } else {
           await stripe.paymentMethods.detach(paymentMethodId);
           await TokenModel.findOneAndDelete({ userId });
+          await SubscriptionModel.findByIdAndDelete(_id)
         }
         break;
       }
