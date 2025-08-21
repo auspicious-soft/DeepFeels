@@ -293,7 +293,7 @@ export const buyAgain = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
     req.body.language = userData.language || "en";
-    const { planId } = req.body;
+    const { planId,paymentMethodId } = req.body;
     const plan = await planModel.findById(planId);
     if (!plan) {
       throw new Error("Invalid plan Id");
@@ -301,6 +301,7 @@ export const buyAgain = async (req: Request, res: Response) => {
     const response = await authServices.buyAgain({
       userId: userData.id,
       planId,
+      paymentMethodId
     });
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {

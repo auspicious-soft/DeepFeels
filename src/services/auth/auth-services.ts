@@ -718,14 +718,14 @@ export const authServices = {
     return { ...user?.toObject(), subscription: subscription?.status || null };
   },
   async buyAgain(payload: any) {
-    const { userId, planId } = payload;
+    const { userId, planId,paymentMethodId } = payload;
     const checkSub = await SubscriptionModel.findOne({ userId }).lean();
 
     if (!checkSub || !["past_due", "canceled"].includes(checkSub.status)) {
       throw new Error("planExist");
     }
 
-    const { currency, paymentMethodId } = checkSub;
+    const { currency } = checkSub;
     const planData = await planModel.findById(planId);
     if (!planData) throw new Error("Invalid plan");
 
@@ -780,6 +780,7 @@ export const authServices = {
       session.endSession();
       return {};
     } catch (err) {
+      console.log('err:', err);
       // Rollback on error
       await session.abortTransaction();
       session.endSession();
