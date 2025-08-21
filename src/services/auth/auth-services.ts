@@ -578,9 +578,29 @@ export const authServices = {
         amount: subscription.items.data[0].price.unit_amount,
         currency: subscription.currency,
       });
+      let additionalInfo: any = [];
+    if (user.isUserInfoComplete && user.isCardSetupComplete) {
+      additionalInfo = await UserInfoModel.findOne({
+        userId: user._id,
+      }).lean();
+    }
+
+    const journalEncryptionData = await JournalEncryptionModel.findOne(
+      { userId: user._id },
+      { journalEncryptionPassword: 0 } // exclude password
+    ).lean();
+
+    let journalEncryption = null;
+    if (journalEncryptionData) {
+      journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+    }
 
       return {
-        subscriptionId: subscription.id,
+        _id: user._id,
+      user: user,
+      subscriptionId: subscription.id,
+      additionalInfo: additionalInfo || null,
+      journalEncryption,
       };
   } else {
     const subscription = await stripe.subscriptions.create({
@@ -620,8 +640,29 @@ export const authServices = {
         currency: subscription.currency,
       });
 
+       let additionalInfo: any = [];
+    if (user.isUserInfoComplete && user.isCardSetupComplete) {
+      additionalInfo = await UserInfoModel.findOne({
+        userId: user._id,
+      }).lean();
+    }
+
+    const journalEncryptionData = await JournalEncryptionModel.findOne(
+      { userId: user._id },
+      { journalEncryptionPassword: 0 } // exclude password
+    ).lean();
+
+    let journalEncryption = null;
+    if (journalEncryptionData) {
+      journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+    }
+
       return {
-        subscriptionId: subscription.id,
+          _id: user._id,
+      user: user,
+      subscriptionId: subscription.id,
+      additionalInfo: additionalInfo || null,
+      journalEncryption,
       };
   }
 },
