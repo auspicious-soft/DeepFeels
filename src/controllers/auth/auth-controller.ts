@@ -105,7 +105,7 @@ export const login = async (req: Request, res: Response) => {
 };
 export const socialLogin = async (req: Request, res: Response) => {
   try {
-    const { authType, idToken, fcmToken,image, deviceType } = req.body;
+    const { authType, idToken, fcmToken,image, deviceType ,fullName} = req.body;
     if (
       !authType ||
       !idToken ||
@@ -123,6 +123,7 @@ export const socialLogin = async (req: Request, res: Response) => {
       fcmToken,
       image,
       deviceType,
+      fullName
     });
     return OK(res, response || {}, req.body.language || "en", "loginSuccess");
   } catch (err: any) {

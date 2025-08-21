@@ -116,11 +116,8 @@ export async function generateAndSendOtp(
 }
 export async function verifyAppleToken(idToken: string) {
   const appleKeys = await axios.get("https://appleid.apple.com/auth/keys");
-  console.log('appleKeys:', appleKeys);
   const decodedHeader: any = jwt.decode(idToken, { complete: true })?.header;
-  console.log('decodedHeader:', decodedHeader);
   const key = appleKeys.data.keys.find((k: any) => k.kid === decodedHeader.kid);
-
   if (!key) throw new Error("Apple public key not found");
 
   const pubKey = jwkToPem(key);

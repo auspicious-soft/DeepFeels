@@ -252,7 +252,24 @@ export const deleteAccount = async (req: Request, res: Response) => {
       userId: userData.id,
     });
 
-    //Need to write cancel subscripiton code as well
+    const subscription = await SubscriptionModel.findOne({
+      userId: userData.id,
+    }).lean();
+    let type = null;
+
+    type =
+      subscription?.status == "trialing"
+        ? "cancelTrial"
+        : subscription?.status == "active"
+        ? "cancelSubscription"
+        : null;
+
+    if (type) {
+      await profileServices.updatePlan({
+        type,
+        userData,
+      });
+    }
 
     return OK(res, {}, "en", "accountDeleted");
   } catch (err: any) {
