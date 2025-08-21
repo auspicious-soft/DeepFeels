@@ -721,7 +721,7 @@ export const authServices = {
     const { userId, planId } = payload;
     const checkSub = await SubscriptionModel.findOne({ userId }).lean();
 
-    if (!checkSub || !["past_due", "calceled"].includes(checkSub.status)) {
+    if (!checkSub || !["past_due", "canceled"].includes(checkSub.status)) {
       throw new Error("planExist");
     }
 
