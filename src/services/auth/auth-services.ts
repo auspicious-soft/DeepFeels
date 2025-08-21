@@ -188,7 +188,7 @@ export const authServices = {
 
     const subscription = await SubscriptionModel.findOne({
       userId: checkExist._id,
-    });
+    }).sort({ createdAt: -1 });
 
     const token = await generateToken(checkExist);
     const userObj = checkExist.toObject();
@@ -284,7 +284,7 @@ export const authServices = {
     const token = await generateToken(checkExist);
     const subscription = await SubscriptionModel.findOne({
       userId: checkExist._id,
-    });
+    }).sort({ createdAt: -1 });
     let additionalInfo: any = [];
     if (checkExist.isUserInfoComplete && checkExist.isCardSetupComplete) {
       additionalInfo = await UserInfoModel.findOne({
