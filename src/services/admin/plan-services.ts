@@ -168,7 +168,7 @@ export const planServices = {
           currentPeriodStart: toDate(current_period_start),
           currentPeriodEnd: toDate(current_period_end),
           nextBillingDate: toDate(current_period_end),
-          amount: planAmount / 100,
+          amount: planAmount ,
           currency,
           paymentMethodId:
             typeof default_payment_method === "string"
@@ -249,7 +249,7 @@ export const planServices = {
         } else {
           await stripe.paymentMethods.detach(paymentMethodId);
           await TokenModel.findOneAndDelete({ userId });
-          await SubscriptionModel.findByIdAndDelete(_id)
+          // await SubscriptionModel.findByIdAndDelete(_id)
         }
         break;
       }
@@ -401,8 +401,8 @@ export const planServices = {
         const paymentMethodId = subscription.default_payment_method as string;
 
         const item = subscription.items?.data?.[0];
-        const planAmount = item?.price?.unit_amount ?? 0;
-        const currency = item?.price?.currency ?? "gbp";
+        const planAmount = item?.price?.unit_amount ;
+        const currency = item?.price?.currency ;
 
         await SubscriptionModel.findOneAndDelete({ userId });
         await UserModel.findByIdAndUpdate(userId, { hasUsedTrial: true });

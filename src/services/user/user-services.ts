@@ -242,13 +242,13 @@ updateUser: async (payload: any) => {
 
     /** Cancel Trial Immediately (no new plan) */
     if (type === "cancelTrial" && !planId) {
-      await stripe.subscriptions.update(
-        userData.subscription.stripeSubscriptionId,
-        {
-          trial_end: "now",
-          proration_behavior: "none",
-        }
-      );
+      await stripe.subscriptions.cancel(
+  userData.subscription.stripeSubscriptionId,
+  {
+    invoice_now: false,
+    prorate: false,
+  }
+);
     }
 
     /** Cancel Trial + Start New Plan */
