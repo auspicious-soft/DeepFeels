@@ -357,6 +357,58 @@ export const getDailyReflection = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
+export const getAllDailyReflections = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+
+    const reflections = await DailyReflectionModel.find({ userId: user.id })
+      .sort({ date: -1 }) // newest first
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber)
+      .lean();
+
+    const total = await DailyReflectionModel.countDocuments({ userId: user.id });
+
+    return res.status(200).json({
+      success: true,
+      data: reflections,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (err: any) {
+    console.error("Error fetching reflections:", err);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+export const getDailyReflectionById = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { id } = req.params;
+
+    const reflection = await DailyReflectionModel.findOne({
+      _id: id,
+      userId: user.id,
+    }).lean();
+
+    if (!reflection) {
+      return res.status(404).json({ success: false, message: "Reflection not found" });
+    }
+
+    return res.status(200).json({ success: true, data: reflection });
+  } catch (err: any) {
+    console.error("Error fetching reflection by id:", err);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
 
 export const createJournal = async (req: Request, res: Response) => {
   try {
@@ -396,6 +448,21 @@ export const getJournalByUserId = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
+export const getJournalById = async(req:Request,res:Response)=>{
+  try {
+    const user = req.user as any;
+    const id = req.params.id;
+    const journals = await journalServices.getJournalById(id, user.id);
+    return res.status(200).json({ success: true, data: journals });
+  } catch (error : any) {
+     console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+}
+
 export const updateJournal = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;

@@ -16,10 +16,13 @@ import {
   createSupportRequest,
   deleteAccount,
   generateCompatibilityController,
+  getAllDailyReflections,
   getAllUserCompatibility,
   getChatHistory,
   getCompatibilityById,
   getDailyReflection,
+  getDailyReflectionById,
+  getJournalById,
   getJournalByUserId,
   getMoodByUserId,
   getPlatformInfo,
@@ -53,8 +56,10 @@ paidRouter.get("/home", userHome);
 // PROFILE
 paidRouter.get("/profile", userProfile);
 paidRouter.get("/daily-reflection", getDailyReflection);
+paidRouter.get("/daily-reflection/:id", getDailyReflectionById);
+paidRouter.get("/user/daily-reflection", getAllDailyReflections);
 paidRouter.route("/journal").post(createJournal).get(getJournalByUserId);
-paidRouter.put("/journal/:id", updateJournal);
+paidRouter.route("/journal/:id").put(updateJournal).get(getJournalById);
 paidRouter.patch("/update-user", updateUser);
 paidRouter.post("/toggle/journal-encryption", toggleJournalEncryption);
 paidRouter.patch("/change-password", changePassword);
