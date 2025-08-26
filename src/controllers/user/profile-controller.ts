@@ -381,14 +381,14 @@ export const getAllDailyReflections = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      data: reflections,
+      data:{ reflections,
       pagination: {
         total,
         page: pageNumber,
         limit: limitNumber,
         totalPages: Math.ceil(total / limitNumber),
       },
-    });
+    }});
   } catch (err: any) {
     console.error("Error fetching reflections:", err);
     return res
