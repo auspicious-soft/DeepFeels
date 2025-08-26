@@ -10,6 +10,7 @@ export interface IDailyReflection extends Document {
   todayEnergy:string;
   emotionalTheme:string;
   suggestedFocus:string;
+  userDescription:string|null;
 }
 
 const dailyReflectionSchema = new Schema<IDailyReflection>(
@@ -22,7 +23,8 @@ const dailyReflectionSchema = new Schema<IDailyReflection>(
     mantra: { type: String, required: true },
     todayEnergy:{type: String, required: true},
     emotionalTheme:{type: String, required: true},
-    suggestedFocus:{type: String, required: true}
+    suggestedFocus:{type: String, required: true},
+    userDescription:{type:String,default:null}
   },
   { timestamps: true }
 );

@@ -32,6 +32,7 @@ import {
   getUser,
   streamChatWithGPT,
   toggleJournalEncryption,
+  updateDailyReflection,
   updateJournal,
   updateSubscription,
   updateUser,
@@ -57,7 +58,7 @@ paidRouter.get("/home", userHome);
 // PROFILE
 paidRouter.get("/profile", userProfile);
 paidRouter.get("/daily-reflection", getDailyReflection);
-paidRouter.get("/daily-reflection/:id", getDailyReflectionById);
+paidRouter.route("/daily-reflection/:id").get(getDailyReflectionById).put(updateDailyReflection);
 paidRouter.get("/user/daily-reflection", getAllDailyReflections);
 paidRouter.route("/journal").post(createJournal).get(getJournalByUserId);
 paidRouter.route("/journal/:id").put(updateJournal).get(getJournalById).delete(deleteJournalById);

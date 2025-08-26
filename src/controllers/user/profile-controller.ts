@@ -421,6 +421,39 @@ export const getDailyReflectionById = async (req: Request, res: Response) => {
       .json({ success: false, message: "Internal Server Error" });
   }
 };
+export const updateDailyReflection = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { id } = req.params;
+    const { userDescription } = req.body;
+
+    if (!id) {
+      throw new Error("ReflectionId is required");
+    }
+
+    if (userDescription === undefined) {
+      throw new Error("userDescription is required");
+    }
+
+    const reflection = await DailyReflectionModel.findOneAndUpdate(
+      { _id: id, userId: user.id },
+      { userDescription },
+      { new: true }
+    );
+
+    if (!reflection) {
+      throw new Error("Reflection not found");
+    }
+
+    return OK(res, reflection, "en");
+  } catch (err: any) {
+    console.error("Error updating reflection:", err);
+    if (err.message) {
+      return BADREQUEST(res, err.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
 
 export const createJournal = async (req: Request, res: Response) => {
   try {
