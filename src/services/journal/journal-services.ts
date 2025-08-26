@@ -14,12 +14,12 @@ export const journalServices = {
       date: { $gte: startOfDay, $lte: endOfDay },
     });
 
-    if (existingEntry) {
-      existingEntry.title = title;
-      existingEntry.content = content;
-      await existingEntry.save();
-      return existingEntry;
-    }
+    // if (existingEntry) {
+    //   existingEntry.title = title;
+    //   existingEntry.content = content;
+    //   await existingEntry.save();
+    //   return existingEntry;
+    // }
 
     const journal = await UserJournalModel.create({
       userId,
@@ -50,15 +50,40 @@ export const journalServices = {
   },
 
   // get journal by user
-  getJournalsByUser:async(userId:string)=>{
-    return await UserJournalModel.find({userId}).sort({date:-1})
-  },
+getJournalsByUser: async (userId: string, page: number = 1, limit: number = 10) => {
+  const skip = (page - 1) * limit;
+
+  const [journals, total] = await Promise.all([
+    UserJournalModel.find({ userId })
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    UserJournalModel.countDocuments({ userId }),
+  ]);
+
+  return {
+    journals,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+},
 
   // Delete journal by ID
-  deleteJournal: async (id: string, userId: string) => {
-    const result = await UserJournalModel.findOneAndDelete({ _id: id, userId });
-    return result;
-  },
+ deleteJournal: async (id: string, userId: string) => {
+  const result = await UserJournalModel.findOneAndDelete({ _id: id, userId });
+
+  if (!result) {
+    throw new Error("Journal not found or not authorized to delete");
+  }
+
+  return {};
+},
+
 
   // Get single journal by ID
   getJournalById: async (id: string, userId: string) => {

@@ -7,7 +7,11 @@ import { TokenModel } from "src/models/user/token-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { chatServices } from "src/services/chat-gpt/chat-service";
-import { generateCompatibilityResultService, getAllUserCompatibilityService, getCompatibilityByIdService } from "src/services/compatibility/compatibility-services";
+import {
+  generateCompatibilityResultService,
+  getAllUserCompatibilityService,
+  getCompatibilityByIdService,
+} from "src/services/compatibility/compatibility-services";
 import { journalServices } from "src/services/journal/journal-services";
 import { moodServices } from "src/services/mood/mood-service";
 import { supportService } from "src/services/support/support-services";
@@ -226,7 +230,7 @@ export const getPlatformInfo = async (req: Request, res: Response) => {
 export const deleteAccount = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-    const {password} = req.body
+    const { password } = req.body;
 
     if (password) {
       // If password is provided, verify it
@@ -234,10 +238,10 @@ export const deleteAccount = async (req: Request, res: Response) => {
       if (!user) {
         return BADREQUEST(res, "User not found", "en");
       }
-     if (!user.password) {
-    // This account was created via OAuth, so password-based delete is not valid
-      return BADREQUEST(res, "This account does not have a password", "en");
-     }
+      if (!user.password) {
+        // This account was created via OAuth, so password-based delete is not valid
+        return BADREQUEST(res, "This account does not have a password", "en");
+      }
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         return BADREQUEST(res, "Invalid password", "en");
@@ -300,7 +304,7 @@ export const updateSubscription = async (req: Request, res: Response) => {
 
     return OK(res, {}, req.body.language, response);
   } catch (err: any) {
-    console.log('err:', err);
+    console.log("err:", err);
     if (err.message) {
       return BADREQUEST(res, err.message, req.body.language);
     }
@@ -331,24 +335,24 @@ export const getDailyReflection = async (req: Request, res: Response) => {
       date: today,
     }).lean();
 
-    if (existing){
+    if (existing) {
       return res.status(200).json({ success: true, data: existing });
-    }else{
-    const generated = await generateReflectionWithGPT({
-      name: userData.fullName,
-      dob: userInfo.dob.toISOString().split("T")[0],
-      timeOfBirth: userInfo.timeOfBirth,
-      location: userInfo.birthPlace,
-    });
+    } else {
+      const generated = await generateReflectionWithGPT({
+        name: userData.fullName,
+        dob: userInfo.dob.toISOString().split("T")[0],
+        timeOfBirth: userInfo.timeOfBirth,
+        location: userInfo.birthPlace,
+      });
 
-    const saved = await DailyReflectionModel.create({
-      userId: user.id,
-      date: today,
-      ...generated,
-    });
+      const saved = await DailyReflectionModel.create({
+        userId: user.id,
+        date: today,
+        ...generated,
+      });
 
-    return res.status(200).json({ success: true, data: saved });
-  }
+      return res.status(200).json({ success: true, data: saved });
+    }
   } catch (err: any) {
     console.error("Error generating reflection:", err);
     if (err.message) {
@@ -371,7 +375,9 @@ export const getAllDailyReflections = async (req: Request, res: Response) => {
       .limit(limitNumber)
       .lean();
 
-    const total = await DailyReflectionModel.countDocuments({ userId: user.id });
+    const total = await DailyReflectionModel.countDocuments({
+      userId: user.id,
+    });
 
     return res.status(200).json({
       success: true,
@@ -385,7 +391,9 @@ export const getAllDailyReflections = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Error fetching reflections:", err);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -400,13 +408,17 @@ export const getDailyReflectionById = async (req: Request, res: Response) => {
     }).lean();
 
     if (!reflection) {
-      return res.status(404).json({ success: false, message: "Reflection not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Reflection not found" });
     }
 
     return res.status(200).json({ success: true, data: reflection });
   } catch (err: any) {
     console.error("Error fetching reflection by id:", err);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -438,7 +450,12 @@ export const createJournal = async (req: Request, res: Response) => {
 export const getJournalByUserId = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const journals = await journalServices.getJournalsByUser(user.id);
+    const { limit = 10, page = 1 } = req.query;
+    const journals = await journalServices.getJournalsByUser(
+      user.id,
+      Number(page),
+      Number(limit)
+    );
     return res.status(200).json({ success: true, data: journals });
   } catch (error: any) {
     console.error(error);
@@ -448,20 +465,34 @@ export const getJournalByUserId = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-export const getJournalById = async(req:Request,res:Response)=>{
+export const deleteJournalById = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const id = req.params.id;
-    const journals = await journalServices.getJournalById(id, user.id);
+    const journals = await journalServices.deleteJournal(id, user.id);
     return res.status(200).json({ success: true, data: journals });
-  } catch (error : any) {
-     console.error(error);
+  } catch (error: any) {
+    console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, req.body.language);
     }
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
-}
+};
+export const getJournalById = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const id = req.params.id;
+    const journals = await journalServices.getJournalById(id, user.id);
+    return res.status(200).json({ success: true, data: journals });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
 
 export const updateJournal = async (req: Request, res: Response) => {
   try {
@@ -499,7 +530,9 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
     const user = req.user as any;
     const { password } = req.body; // send password from frontend
 
-    let JournalEncryption = await JournalEncryptionModel.findOne({ userId: user.id });
+    let JournalEncryption = await JournalEncryptionModel.findOne({
+      userId: user.id,
+    });
     if (!password) throw new Error("Password is required to enable encryption");
     // If encryption is OFF and turning it ON
     if (!JournalEncryption) {
@@ -509,43 +542,50 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
         journalEncryption: true,
       });
       await JournalEncryption.save();
-      return res.status(200).json({ success: true, message: "Encryption enabled successfully" });
+      return res
+        .status(200)
+        .json({ success: true, message: "Encryption enabled successfully" });
     }
 
     // If encryption is ON and turning it OFF
     // If encryption record exists
     if (JournalEncryption.journalEncryption) {
       // Currently ON, user wants to turn it OFF
-      const isMatch = await bcrypt.compare(password, JournalEncryption.journalEncryptionPassword || "");
+      const isMatch = await bcrypt.compare(
+        password,
+        JournalEncryption.journalEncryptionPassword || ""
+      );
       if (!isMatch) {
         throw new Error("Incorrect password");
       }
 
       JournalEncryption.journalEncryption = false;
       await JournalEncryption.save();
-      
-      return res.status(200).json({ 
-        success: true, 
+
+      return res.status(200).json({
+        success: true,
         message: "Encryption disabled successfully",
-        journalEncryption: false
+        journalEncryption: false,
       });
     } else {
       // Currently OFF, user wants to turn it ON
-      const isMatch = await bcrypt.compare(password, JournalEncryption.journalEncryptionPassword || "");
+      const isMatch = await bcrypt.compare(
+        password,
+        JournalEncryption.journalEncryptionPassword || ""
+      );
       if (!isMatch) {
         throw new Error("Incorrect password");
       }
 
       JournalEncryption.journalEncryption = true;
       await JournalEncryption.save();
-      
-      return res.status(200).json({ 
-        success: true, 
+
+      return res.status(200).json({
+        success: true,
         message: "Encryption enabled successfully",
-        journalEncryption: true
+        journalEncryption: true,
       });
     }
-
   } catch (error: any) {
     console.error(error);
     if (error.message) {
@@ -557,14 +597,14 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
 export const createOrUpdateMood = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { mood,description } = req.body;
+    const { mood, description } = req.body;
 
     if (!mood) throw new Error("Mood is required");
 
     const result = await moodServices.createOrUpdateMood({
       userId: user.id,
       mood,
-      description
+      description,
     });
 
     return res.status(200).json({ success: true, data: result });
@@ -628,14 +668,18 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
 };
 export const getChatHistory = async (req: Request, res: Response) => {
   const user = req.user as any;
-  const { limit = 50,page = 1 } = req.query;
+  const { limit = 50, page = 1 } = req.query;
 
   if (!limit) {
     throw new Error("Content is required");
   }
 
   try {
-    const response = await chatServices.getUserChatHistory(user.id, (limit as any), (page as any));
+    const response = await chatServices.getUserChatHistory(
+      user.id,
+      limit as any,
+      page as any
+    );
     return res.status(200).json({ success: true, data: response });
   } catch (error) {
     console.error("Streaming error:", error);
@@ -649,13 +693,16 @@ export const getChatHistory = async (req: Request, res: Response) => {
   }
 };
 
-export const generateCompatibilityController = async (req: Request, res: Response) => {
+export const generateCompatibilityController = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const user = req.user as JwtPayload;
     const partner = req.body;
 
     if (!partner) {
-      throw new Error("Partner details are required")
+      throw new Error("Partner details are required");
     }
 
     const result = await generateCompatibilityResultService(user.id, partner);
@@ -666,7 +713,7 @@ export const generateCompatibilityController = async (req: Request, res: Respons
       data: result,
     });
   } catch (error: any) {
-   console.error(error);
+    console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, "en");
     }
@@ -676,11 +723,11 @@ export const generateCompatibilityController = async (req: Request, res: Respons
 
 export const getAllUserCompatibility = async (req: any, res: Response) => {
   try {
-    const userId = req.user?.id 
+    const userId = req.user?.id;
     const results = await getAllUserCompatibilityService(userId);
     res.status(200).json({ success: true, data: results });
-  } catch (error : any) {
-   console.error(error);
+  } catch (error: any) {
+    console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, "en");
     }
@@ -694,8 +741,8 @@ export const getCompatibilityById = async (req: any, res: Response) => {
     const { id } = req.params;
     const result = await getCompatibilityByIdService(id, userId);
     res.status(200).json({ success: true, data: result });
-  } catch (error : any) {
-     console.error(error);
+  } catch (error: any) {
+    console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, "en");
     }
@@ -735,7 +782,7 @@ export const getSupportRequests = async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, data: result });
   } catch (error: any) {
-     console.error(error);
+    console.error(error);
     if (error.message) {
       return BADREQUEST(res, error.message, "en");
     }
@@ -747,13 +794,17 @@ export const getSubscription = async (req: Request, res: Response) => {
     const user = req.user as any;
 
     // Fetch subscription
-    const subscription = await SubscriptionModel.findOne({ userId: user.id }).lean();
+    const subscription = await SubscriptionModel.findOne({
+      userId: user.id,
+    }).lean();
     if (!subscription) {
       throw new Error("No Subscription");
     }
 
     // Fetch user flags
-    const userDoc = await UserModel.findById(user.id).select("hasUsedTrial").lean();
+    const userDoc = await UserModel.findById(user.id)
+      .select("hasUsedTrial")
+      .lean();
 
     const now = new Date();
     const isTrial =
@@ -762,7 +813,8 @@ export const getSubscription = async (req: Request, res: Response) => {
 
     const trialEndsOn = isTrial ? subscription.trialEnd : null;
 
-    const expiresOn = subscription.currentPeriodEnd || subscription.nextBillingDate || null;
+    const expiresOn =
+      subscription.currentPeriodEnd || subscription.nextBillingDate || null;
 
     // e.g., expiring in next 7 days
     const isExpiringSoon =

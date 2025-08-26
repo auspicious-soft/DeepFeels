@@ -15,6 +15,7 @@ import {
   createOrUpdateMood,
   createSupportRequest,
   deleteAccount,
+  deleteJournalById,
   generateCompatibilityController,
   getAllDailyReflections,
   getAllUserCompatibility,
@@ -59,7 +60,7 @@ paidRouter.get("/daily-reflection", getDailyReflection);
 paidRouter.get("/daily-reflection/:id", getDailyReflectionById);
 paidRouter.get("/user/daily-reflection", getAllDailyReflections);
 paidRouter.route("/journal").post(createJournal).get(getJournalByUserId);
-paidRouter.route("/journal/:id").put(updateJournal).get(getJournalById);
+paidRouter.route("/journal/:id").put(updateJournal).get(getJournalById).delete(deleteJournalById);
 paidRouter.patch("/update-user", updateUser);
 paidRouter.post("/toggle/journal-encryption", toggleJournalEncryption);
 paidRouter.patch("/change-password", changePassword);
