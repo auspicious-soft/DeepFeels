@@ -4,7 +4,7 @@ import { moodModel } from "src/models/user/mood-schema";
 export const moodServices = {
   // Create or update today's mood
   createOrUpdateMood: async (payload: any) => {
-    const { userId, mood } = payload;
+    const { userId, mood,description } = payload;
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
@@ -14,9 +14,16 @@ export const moodServices = {
       date: { $gte: startOfDay, $lte: endOfDay },
     });
 
-    if (existingMood) {
+     if (existingMood) {
       existingMood.mood = mood;
-      existingMood.note = "";
+
+      // Update note only if description provided
+      if (description && description.trim() !== "") {
+        existingMood.note = description.trim();
+      } else {
+        existingMood.note = null; 
+      }
+
       await existingMood.save();
       return existingMood;
     }
@@ -24,7 +31,8 @@ export const moodServices = {
     const newMood = await moodModel.create({
       userId,
       date: new Date(),
-      mood
+      mood,
+      note: description && description.trim() !== "" ? description.trim() : null,
     });
 
     return newMood;

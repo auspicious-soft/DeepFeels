@@ -490,13 +490,14 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
 export const createOrUpdateMood = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { mood } = req.body;
+    const { mood,description } = req.body;
 
     if (!mood) throw new Error("Mood is required");
 
     const result = await moodServices.createOrUpdateMood({
       userId: user.id,
       mood,
+      description
     });
 
     return res.status(200).json({ success: true, data: result });
@@ -560,14 +561,14 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
 };
 export const getChatHistory = async (req: Request, res: Response) => {
   const user = req.user as any;
-  const { limit } = req.query;
+  const { limit = 50,page = 1 } = req.query;
 
   if (!limit) {
     throw new Error("Content is required");
   }
 
   try {
-    const response = await chatServices.getUserChatHistory(user.id, (limit as any));
+    const response = await chatServices.getUserChatHistory(user.id, (limit as any), (page as any));
     return res.status(200).json({ success: true, data: response });
   } catch (error) {
     console.error("Streaming error:", error);

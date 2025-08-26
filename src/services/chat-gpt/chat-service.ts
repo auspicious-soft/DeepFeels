@@ -7,15 +7,28 @@ import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 
 export const chatServices = {
-  getUserChatHistory: async (userId: string, limit: number = 50) => {
+  getUserChatHistory: async (userId: string, limit: number = 50, page: number = 1) => {
+    const skip = (page - 1) * limit;
     const chats = await chatModel
       .find({ userId })
       .sort({ createdAt: -1 })
+      .skip(skip)
       .limit(limit)
       .lean();
 
+      const total = await chatModel.countDocuments({ userId });
     // return chats.reverse(); // return oldest → newest
-    return chats
+    return  {
+       chats,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1,
+    },
+  };
   },
 
   streamMessageToGPT: async (userId: string, content: string, res: Response) => {
