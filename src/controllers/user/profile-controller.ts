@@ -93,7 +93,6 @@ export const updateUser = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-
 export const changePassword = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
@@ -396,7 +395,6 @@ export const getAllDailyReflections = async (req: Request, res: Response) => {
       .json({ success: false, message: "Internal Server Error" });
   }
 };
-
 export const getDailyReflectionById = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
@@ -454,7 +452,6 @@ export const updateDailyReflection = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-
 export const createJournal = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
@@ -526,7 +523,6 @@ export const getJournalById = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
-
 export const updateJournal = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
@@ -725,7 +721,6 @@ export const getChatHistory = async (req: Request, res: Response) => {
     res.end();
   }
 };
-
 export const generateCompatibilityController = async (
   req: Request,
   res: Response
@@ -753,7 +748,6 @@ export const generateCompatibilityController = async (
     return INTERNAL_SERVER_ERROR(res, "en");
   }
 };
-
 export const getAllUserCompatibility = async (req: any, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -767,7 +761,6 @@ export const getAllUserCompatibility = async (req: any, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, "en");
   }
 };
-
 export const getCompatibilityById = async (req: any, res: Response) => {
   try {
     const userId = req.user?.id || req.user?._id;

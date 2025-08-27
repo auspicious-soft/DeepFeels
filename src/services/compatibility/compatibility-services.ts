@@ -83,7 +83,7 @@ export const getAllUserCompatibilityService = async (userId: string) => {
     throw new Error("Invalid userId");
   }
 
-  return await CompatibilityResultModel.find({ userId }).sort({ createdAt: -1 });
+  return await CompatibilityResultModel.find({ userId }).populate("userId", "-password -fcmToken -stripeCustomerId").sort({ createdAt: -1 });
 };
 
 export const getCompatibilityByIdService = async (id: string, userId: string) => {
