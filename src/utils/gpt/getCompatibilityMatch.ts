@@ -55,6 +55,26 @@ Respond strictly in the following JSON format:
     "title": "Emotional & Mental Compatibility",
     "text": "brief paragraph"
   },
+  "emotionalAndMentalCompatibility": {
+  "title": "Emotional & Mental Compatibility",
+  "text": "brief paragraph"
+},
+"physicalAndIntimateCompatibility": {
+  "title": "Physical & Intimate Compatibility",
+  "text": "brief paragraph about physical chemistry, attraction, and intimacy"
+},
+"spiritualCompatibility": {
+  "title": "Spiritual Compatibility",
+  "text": "brief paragraph about karmic bonds, shared spiritual growth, and higher purpose alignment"
+},
+"communicationAndUnderstanding": {
+  "title": "Communication & Understanding",
+  "text": "brief paragraph about how well they listen, express, and resolve conflicts"
+},
+"lifestyleAndValuesCompatibility": {
+  "title": "Lifestyle & Values Compatibility",
+  "text": "brief paragraph about shared habits, goals, values, and long-term vision"
+},
   "astrologicalSupport": {
     "you": {
       "zodiacSign": "...",
