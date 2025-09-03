@@ -9,7 +9,7 @@ import { customMessages, SupportedLang } from "./messages";
 import { IUser } from "src/models/user/user-schema";
 import jwt from "jsonwebtoken";
 import { TokenModel } from "src/models/user/token-schema";
-import axios from "axios"
+import axios from "axios";
 import jwkToPem from "jwk-to-pem";
 
 configDotenv();
@@ -33,11 +33,11 @@ export async function hashPassword(password: string) {
   return await bcrypt.hash(password, 10);
 }
 
-export async function verifyPassword(password: string, hashPassword: string){
-  return await bcrypt.compare(password, hashPassword)
+export async function verifyPassword(password: string, hashPassword: string) {
+  return await bcrypt.compare(password, hashPassword);
 }
 
-export async function generateToken(user: IUser){
+export async function generateToken(user: IUser) {
   const tokenPayload = {
     id: user._id,
     email: user.email || null,
@@ -48,19 +48,20 @@ export async function generateToken(user: IUser){
     countryCode: user.countryCode,
   };
 
-  const token =  jwt.sign(tokenPayload, process.env.AUTH_SECRET as string, { expiresIn: "60d" });
+  const token = jwt.sign(tokenPayload, process.env.AUTH_SECRET as string, {
+    expiresIn: "60d",
+  });
 
   const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
-  // await TokenModel.deleteMany({userId: user._id})
+  await TokenModel.deleteMany({ userId: user._id });
   await TokenModel.create({
     token,
     userId: user._id,
-    expiresAt
-  })
+    expiresAt,
+  });
 
-  return token
-
+  return token;
 }
 
 export async function generateAndSendOtp(
@@ -81,7 +82,7 @@ export async function generateAndSendOtp(
     phone: type === "EMAIL" ? null : value,
     type,
     purpose,
-    userType
+    userType,
   });
 
   if (checkExist) {
@@ -94,7 +95,7 @@ export async function generateAndSendOtp(
     type,
     purpose,
     code: otp,
-    userType
+    userType,
   });
 
   if (type === "EMAIL") {
