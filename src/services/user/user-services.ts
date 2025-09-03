@@ -15,34 +15,50 @@ import { generateToken, hashPassword, verifyPassword } from "src/utils/helper";
 configDotenv();
 
 export const homeServices = {
-  getUserHome: async (payload: any) => {
-    const user = payload.userData;
+ getUserHome: async (payload: any) => {
+  const user = payload.userData;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    // 1. Get or generate daily reflection
-    let dailyReflection = await DailyReflectionModel.findOne({
-      userId: user.id,
-      date: today,
-    }).lean();
+  // 1. Get or generate daily reflection
+  let dailyReflection = await DailyReflectionModel.findOne({
+    userId: user.id,
+    date: today,
+  }).lean();
 
-    if (!dailyReflection) {
-      const userData = await UserModel.findById(user.id).lean();
-      const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
+  console.log('Existing daily reflection:', dailyReflection);
 
-      if (
-        userData?.fullName &&
-        userInfo?.dob &&
-        userInfo?.timeOfBirth &&
-        userInfo?.birthPlace
-      ) {
+  if (!dailyReflection) {
+    const userData = await UserModel.findById(user.id).lean();
+    const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
+
+    // Debug logging to see what data we have
+    console.log('User data:', {
+      fullName: userData?.fullName,
+      dob: userInfo?.dob,
+      timeOfBirth: userInfo?.timeOfBirth,
+      birthPlace: userInfo?.birthPlace,
+    });
+
+    // Check if all required fields exist
+    const hasRequiredData = userData?.fullName && 
+                           userInfo?.dob && 
+                           userInfo?.timeOfBirth && 
+                           userInfo?.birthPlace;
+
+    console.log('Has all required data:', hasRequiredData);
+
+    if (hasRequiredData) {
+      try {
         const generated = await generateReflectionWithGPT({
           name: userData.fullName,
           dob: userInfo.dob.toISOString().split("T")[0],
-          timeOfBirth: userInfo.timeOfBirth,
-          location: userInfo.birthPlace,
+          timeOfBirth: userInfo.timeOfBirth || undefined,
+          location : userInfo.birthPlace,
         });
+        
+        console.log('Generated reflection:', generated);
 
         const saved = await DailyReflectionModel.create({
           userId: user.id,
@@ -50,31 +66,39 @@ export const homeServices = {
           ...generated,
         });
 
-        dailyReflection = saved.toObject();
+        (dailyReflection as any) = saved.toObject();
+        console.log('Saved daily reflection:', dailyReflection);
+      } catch (error) {
+        console.error('Error generating or saving reflection:', error);
+        // You might want to handle this error differently
+        // For now, we'll continue with null dailyReflection
       }
+    } else {
+      console.log('Missing required user data for generating reflection');
     }
+  }
 
-    // 2. Get today’s mood (if available)
-    const startOfDay = new Date(today);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
+  // 2. Get today's mood (if available)
+  const startOfDay = new Date(today);
+  const endOfDay = new Date(today);
+  endOfDay.setHours(23, 59, 59, 999);
 
-    const moodDoc = await moodModel.findOne({
-      userId: user.id,
-      date: { $gte: startOfDay, $lte: endOfDay },
-    }).lean();
+  const moodDoc = await moodModel.findOne({
+    userId: user.id,
+    date: { $gte: startOfDay, $lte: endOfDay },
+  }).lean();
 
-     const subscription = await SubscriptionModel.findOne({
-      userId: user.id,
-    });
+  const subscription = await SubscriptionModel.findOne({
+    userId: user.id,
+  });
 
-    return {
-      plan: subscription?.status || null,
-      dailyReflection: dailyReflection || null,
-      mood: moodDoc ? { mood: moodDoc.mood, note: moodDoc.note || "" } : null,
-      moodNotSet: !moodDoc,
-    };
-  },
+  return {
+    plan: subscription?.status || null,
+    dailyReflection: dailyReflection || null,
+    mood: moodDoc ? { mood: moodDoc.mood, note: moodDoc.note || "" } : null,
+    moodNotSet: !moodDoc,
+  };
+},
 };
 
 export const profileServices = {

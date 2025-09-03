@@ -7,14 +7,16 @@ export const generateReflectionWithGPT = async (data: {
   timeOfBirth: string;
   location: string;
 }) => {
+
+   let birthDetails = `- Name: ${data.name}\n- Date of Birth: ${data.dob}\n- Birth Location: ${data.location}`;
+  if (data.timeOfBirth) {
+    birthDetails += `\n- Time of Birth: ${data.timeOfBirth}`;
+  }
   const prompt = `
 You are a professional astrologer. Based on the following birth details, generate a personalized daily astrological reflection, a grounding tip, and a mantra that aligns with the user's cosmic energies for today.
 
 User Details:
-- Name: ${data.name}
-- Date of Birth: ${data.dob}
-- Time of Birth: ${data.timeOfBirth}
-- Birth Location: ${data.location}
+${birthDetails}
 
 Respond strictly in JSON format with the following keys:
 - title: A creative and meaningful title that summarizes the overall message of the day, inspired by the reflection, mantra, and grounding tip (do NOT use the user's name in the title).
