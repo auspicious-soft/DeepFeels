@@ -15,7 +15,7 @@ import { generateToken, hashPassword, verifyPassword } from "src/utils/helper";
 configDotenv();
 
 export const homeServices = {
- getUserHome: async (payload: any) => {
+getUserHome: async (payload: any) => {
   const user = payload.userData;
 
   const today = new Date();
@@ -41,22 +41,33 @@ export const homeServices = {
       birthPlace: userInfo?.birthPlace,
     });
 
-    // Check if all required fields exist
+    // Check if minimum required fields exist (timeOfBirth is now optional)
     const hasRequiredData = userData?.fullName && 
                            userInfo?.dob && 
-                           userInfo?.timeOfBirth && 
                            userInfo?.birthPlace;
 
     console.log('Has all required data:', hasRequiredData);
 
     if (hasRequiredData) {
       try {
-        const generated = await generateReflectionWithGPT({
+        // Prepare the data object - timeOfBirth is optional
+        const generationData: {
+          name: string;
+          dob: string;
+          timeOfBirth?: string;
+          location: string;
+        } = {
           name: userData.fullName,
           dob: userInfo.dob.toISOString().split("T")[0],
-          timeOfBirth: userInfo.timeOfBirth || undefined,
-          location : userInfo.birthPlace,
-        });
+          location: userInfo.birthPlace,
+        };
+
+        // Only add timeOfBirth if it exists
+        if (userInfo.timeOfBirth) {
+          generationData.timeOfBirth = userInfo.timeOfBirth;
+        }
+
+        const generated = await generateReflectionWithGPT(generationData);
         
         console.log('Generated reflection:', generated);
 
