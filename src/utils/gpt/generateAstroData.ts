@@ -1,28 +1,50 @@
 import { openai } from "src/config/openAi";
 
-export const getAstroDataFromGPT = async ({ fullName, dob, timeOfBirth, birthPlace, gender }: { fullName: any; dob: any; timeOfBirth: any; birthPlace: any; gender: any; }) => {
+export const getAstroDataFromGPT = async ({
+  fullName,
+  dob,
+  timeOfBirth,
+  birthPlace,
+  gender,
+}: {
+  fullName: any;
+  dob: any;
+  timeOfBirth?: string;
+  birthPlace: string;
+  gender?: string;
+}) => {
   const prompt = `Based on the birth details:
 - Full Name: ${fullName}
 - Date of Birth: ${dob}
-- Time of Birth: ${timeOfBirth}
+- Time of Birth: ${timeOfBirth || "Not provided"}
 - Birth Place: ${birthPlace}
-- Gender: ${gender}
+- Gender: ${gender || "Not provided"}
 
-Give me:
-- sunSign
-- zodiacSign
-- birthStar
-- moonSign
-- 2-3 personality keywords
-
-Respond in JSON only.`;
+Give me strictly in JSON format with the following fields:
+{
+  "sunSign": "<Sun sign>",
+  "zodiacSign": "<One of: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces>",
+  "birthStar": "<Nakshatra / Birth star>",
+  "moonSign": "<Moon sign>",
+  "personalityKeywords": ["<keyword1>", "<keyword2>", "<keyword3>"]
+}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4",
     temperature: 0.5,
-    messages: [{ role: "system", content: "You are a professional Vedic astrologer." }, { role: "user", content: prompt }],
+    messages: [
+      { role: "system", content: "You are a professional Vedic astrologer." },
+      { role: "user", content: prompt },
+    ],
   });
 
-  const data = JSON.parse(response.choices[0].message.content || "{}");
+  const raw = response.choices[0].message?.content || "{}";
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = {};
+  }
+
   return data;
 };
