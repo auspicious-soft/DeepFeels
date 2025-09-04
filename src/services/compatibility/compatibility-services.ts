@@ -52,7 +52,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
   const partnerAstroData = await getAstroDataFromGPT({
     fullName: `${partnerDetails.firstName} ${partnerDetails.lastName}`,
     dob: partnerDetails.dob,
-    timeOfBirth: partnerDetails.timeOfBirth,
+    timeOfBirth: partnerDetails.timeOfBirth || null,
     birthPlace: partnerDetails.birthPlace,
     gender: partnerDetails.gender,
   });
@@ -61,7 +61,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
   const compatibilityResult = await getCompatibilityAnalysisFromGPT({
     you: userAstroData,
     partner: partnerAstroData,
-    partnerInfo: partnerDetails,
+    partnerInfo: partnerDetails || null,
     relationshipType
   });
 
