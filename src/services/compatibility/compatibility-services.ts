@@ -11,7 +11,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
   const userData = await UserModel.findById(userId).select("fullName");
   const relationshipType = partnerDetails.relationshipType
   let userAstroData;
-  if (userInfo?.dob && userInfo?.timeOfBirth && userInfo?.birthPlace) {
+  if (userInfo?.dob && userInfo?.birthPlace) {
     // Check if astrological data exists in the userInfo (we assume it's stored under custom keys or added)
     if (userInfo["zodiacSign"]) {
       userAstroData = {
