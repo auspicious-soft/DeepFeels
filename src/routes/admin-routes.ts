@@ -3,6 +3,7 @@ import {
   createPlan,
   getPlans,
   getPlatformInfo,
+  getStats,
   postPrivacyPolicy,
   postSupport,
   postTermAndCondition,
@@ -22,6 +23,7 @@ router.route("/get-platform-info").get(getPlatformInfo);
 router.route("/privacy-policy").post(postPrivacyPolicy);
 router.route("/term-and-condition").post(postTermAndCondition);
 router.route("/support").post(postSupport);
+router.get("/stats",getStats)
 
 // Temperary route for creating an admin
 router.post("/create-admin", async (req, res) => {

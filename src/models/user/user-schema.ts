@@ -21,6 +21,7 @@ export interface IUser extends Document {
   stripeCustomerId?: string;
   isCardSetupComplete?: boolean;
   hasUsedTrial?: boolean;
+  role: "USER" | "ADMIN";
 }
 
 const userSchema = new Schema<IUser>(
@@ -109,6 +110,11 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    role:{
+      type: String,
+      enum: ["USER", "ADMIN"],
+      default: "USER",
+    }
   },
   { timestamps: true }
 );

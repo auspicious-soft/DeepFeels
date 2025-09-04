@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { planModel } from "src/models/admin/plan-schema";
 import { PlatformInfoModel } from "src/models/admin/platform-info-schema";
+import { TransactionModel } from "src/models/user/transaction-schema";
+import { UserModel } from "src/models/user/user-schema";
 import { planServices } from "src/services/admin/plan-services";
 
 import {
@@ -191,5 +193,79 @@ export const postSupport = async (req: Request, res: Response) => {
       return BADREQUEST(res, err.message, req.body.language || "en");
     }
     return INTERNAL_SERVER_ERROR(res, req.body.language || "en");
+  }
+};
+export const getStats = async (req: Request, res: Response) => {
+  try {
+    const { type, period } = req.query as { type: string; period: string };
+
+    if (!type || !["user", "transaction"].includes(type)) {
+      throw new Error("Invalid type. Must be 'user' or 'transaction'");
+    }
+    if (!period || !["month", "total"].includes(period)) {
+      throw new Error("Invalid period. Must be 'month' or 'total'");
+    }
+
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    let stats: any = {};
+    let items: any[] = [];
+
+    if (type === "user") {
+      const filter: any = {};
+      if (period === "month") {
+        filter.createdAt = { $gte: startOfMonth };
+      }
+
+      const users = await UserModel.find(filter).select("-password"); // don’t expose password
+      stats = {
+        type: "user",
+        period,
+        count: users.length,
+      };
+      items = users;
+    }
+
+    if (type === "transaction") {
+      const filter: any = { status: "succeeded" ,amount:{$ne:0}};
+      if (period === "month") {
+        filter.paidAt = { $gte: startOfMonth };
+      }
+
+      const transactions = await TransactionModel.find(filter).populate("userId", "fullName email image");
+      const aggregateResult = await TransactionModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            totalCount: { $sum: 1 },
+            totalAmount: { $sum: "$amount" },
+          },
+        },
+      ]);
+
+      const result = aggregateResult[0] || { totalCount: 0, totalAmount: 0 };
+      stats = {
+        type: "transaction",
+        period,
+        count: result.totalCount,
+        totalAmountUSD: (result.totalAmount).toFixed(2), // assuming stored in cents
+      };
+      items = transactions;
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        stats,
+        items,
+      },
+    });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body?.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body?.language);
   }
 };

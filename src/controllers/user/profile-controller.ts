@@ -640,9 +640,9 @@ export const createOrUpdateMood = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(error);
     if (error.message) {
-      return BADREQUEST(res, error.message, req.body.language);
+      return BADREQUEST(res, error.message, req.body.language || "en");
     }
-    return INTERNAL_SERVER_ERROR(res, req.body.language);
+    return INTERNAL_SERVER_ERROR(res, req.body.language || "en");
   }
 };
 export const getMoodByUserId = async (req: Request, res: Response) => {
