@@ -24,7 +24,6 @@ export const authServices = {
   async register(payload: any) {
     const checkExist = await UserModel.findOne({
       email: payload.email,
-      isDeleted: false,
     });
     if (checkExist) {
       if (checkExist.isDeleted) {
