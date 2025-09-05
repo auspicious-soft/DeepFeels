@@ -623,6 +623,42 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
     return INTERNAL_SERVER_ERROR(res, req.body.language);
   }
 };
+
+export const checkJournalEncryptionPassword = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { password } = req.body;
+
+    if (!password) {
+      throw new Error("Password is required");
+    }
+
+    const journalEncryption = await JournalEncryptionModel.findOne({
+      userId: user.id,
+    });
+
+    if (!journalEncryption || !journalEncryption.journalEncryption) {
+      throw new Error("Journal encryption is not enabled");
+    }
+
+    const isMatch = await bcrypt.compare(password, journalEncryption.journalEncryptionPassword);
+
+    if (!isMatch) {
+      throw new Error("Incorrect password");
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Password is correct",
+    });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, req.body.language);
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language);
+  }
+};
 export const createOrUpdateMood = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;

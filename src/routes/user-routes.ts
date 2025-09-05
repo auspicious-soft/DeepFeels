@@ -11,6 +11,7 @@ import {
 import { userHome } from "src/controllers/user/home-controller";
 import {
   changePassword,
+  checkJournalEncryptionPassword,
   createJournal,
   createOrUpdateMood,
   createSupportRequest,
@@ -63,7 +64,7 @@ paidRouter.get("/user/daily-reflection", getAllDailyReflections);
 paidRouter.route("/journal").post(createJournal).get(getJournalByUserId);
 paidRouter.route("/journal/:id").put(updateJournal).get(getJournalById).delete(deleteJournalById);
 paidRouter.patch("/update-user", updateUser);
-paidRouter.post("/toggle/journal-encryption", toggleJournalEncryption);
+paidRouter.route("/toggle/journal-encryption").post(toggleJournalEncryption).get(checkJournalEncryptionPassword);
 paidRouter.patch("/change-password", changePassword);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
 paidRouter.route("/chat-gpt").post(streamChatWithGPT).get(getChatHistory);
