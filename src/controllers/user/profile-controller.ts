@@ -627,7 +627,7 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
 export const checkJournalEncryptionPassword = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { password } = req.params;
+    const { password } = req.query;
 
     if (!password) {
       throw new Error("Password is required");
