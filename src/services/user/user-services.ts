@@ -53,12 +53,12 @@ getUserHome: async (payload: any) => {
         // Prepare the data object - timeOfBirth is optional
         const generationData: {
           name: string;
-          dob: string;
+          dob: any;
           timeOfBirth?: string;
-          location: string;
+          location: any;
         } = {
           name: userData.fullName,
-          dob: userInfo.dob.toISOString().split("T")[0],
+          dob: userInfo.dob?.toISOString().split("T")[0],
           location: userInfo.birthPlace,
         };
 
@@ -104,7 +104,7 @@ getUserHome: async (payload: any) => {
   });
 
   return {
-    plan: subscription?.status || null,
+    plan: subscription || null,
     dailyReflection: dailyReflection || null,
     mood: moodDoc ? { mood: moodDoc.mood, note: moodDoc.note || "" } : null,
     moodNotSet: !moodDoc,
@@ -141,9 +141,14 @@ export const profileServices = {
     journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
   }
 
+  const subscription = await SubscriptionModel.findOne({
+      userId: payload.userData.id,
+    }).lean().sort({createdAt:-1});
+
     return {
       _id: payload.userData.id,
      user,
+     subscription:subscription || null,
       additionalInfo,
       journalEncryption
     };

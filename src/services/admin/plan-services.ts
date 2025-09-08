@@ -34,14 +34,12 @@ export const planServices = {
       },
     });
 
-
     const Price = await stripe.prices.create({
       unit_amount: Math.round(amount * 100),
       currency: "usd",
       recurring: { interval: "month" },
       product: stripeProduct.id,
     });
-
 
     // 3. Save to DB
     const planDoc = await planModel.create({
@@ -61,62 +59,62 @@ export const planServices = {
   },
 
   async updatePlan(planId: string, payload: any) {
-  const {
-    name,
-    description,
-    trialDays,
-    amount,
-    fullAccess,
-    trialAccess,
-    features,
-    isActive,
-  } = payload;
+    const {
+      name,
+      description,
+      trialDays,
+      amount,
+      fullAccess,
+      trialAccess,
+      features,
+      isActive,
+    } = payload;
 
-  const plan = await planModel.findById(planId);
-  if (!plan) throw new Error("planNotFound");
+    const plan = await planModel.findById(planId);
+    if (!plan) throw new Error("planNotFound");
 
-  // --- Update Stripe Product ---
-  if (name || description) {
-    await stripe.products.update(plan.stripeProductId, {
-      ...(name && { name }),
-      ...(description && { description }),
-    });
-  }
-
-  // --- Handle Price update ---
-  let newPrice;
-  if (amount) {
-    // Deactivate old price
-    if (plan.stripePrices) {
-      await stripe.prices.update(plan.stripePrices, { active: false });
+    // --- Update Stripe Product ---
+    if (name || description) {
+      await stripe.products.update(plan.stripeProductId, {
+        ...(name && { name }),
+        ...(description && { description }),
+      });
     }
 
-    // Create new price
-    newPrice = await stripe.prices.create({
-      unit_amount: Math.round(amount * 100),
-      currency: "usd",
-      recurring: { interval: "month" },
-      product: plan.stripeProductId,
-    });
+    // --- Handle Price update ---
+    let newPrice;
+    if (amount) {
+      // Deactivate old price
+      if (plan.stripePrices) {
+        await stripe.prices.update(plan.stripePrices, { active: false });
+      }
 
-    plan.stripePrices = newPrice.id;
-    plan.amounts = Math.round(amount * 100);
-  }
+      // Create new price
+      newPrice = await stripe.prices.create({
+        unit_amount: Math.round(amount * 100),
+        currency: "usd",
+        recurring: { interval: "month" },
+        product: plan.stripeProductId,
+      });
 
-  // --- Update DB fields ---
-  if (name) plan.name = name;
-  if (description) plan.description = description;
-  if (trialDays !== undefined) plan.trialDays = trialDays;
-  if (fullAccess) plan.fullAccess = fullAccess;
-  if (trialAccess) plan.trialAccess = trialAccess;
-  if (features) plan.features = features;
-  if (typeof isActive === "boolean") plan.isActive = isActive;
+      plan.stripePrices = newPrice.id;
+      plan.amounts = Math.round(amount * 100);
+    }
 
-  await plan.save();
-  return plan;
-},
+    // --- Update DB fields ---
+    if (name) plan.name = name;
+    if (description) plan.description = description;
+    if (trialDays !== undefined) plan.trialDays = trialDays;
+    if (fullAccess) plan.fullAccess = fullAccess;
+    if (trialAccess) plan.trialAccess = trialAccess;
+    if (features) plan.features = features;
+    if (typeof isActive === "boolean") plan.isActive = isActive;
 
-  async handleStripeWebhook(req: Request) {
+    await plan.save();
+    return plan;
+  },
+
+async handleStripeWebhook(req: Request) {
   const sig = req.headers["stripe-signature"] as string;
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
@@ -149,15 +147,23 @@ export const planServices = {
           trial_end,
           cancel_at_period_end,
           items,
-          current_period_start,
-          current_period_end,
           default_payment_method,
         } = sub;
 
         const item = items?.data?.[0];
         const planAmount = item?.price?.unit_amount ?? 0;
-        const currency = item?.price?.currency ?? "inr";
+        const currency = item?.price?.currency ?? "usd";
 
+         const currentPeriodStart = item?.current_period_start;
+        const currentPeriodEnd = item?.current_period_end;
+
+        console.log('Period info:', {
+          currentPeriodStart,
+          currentPeriodEnd,
+          subscription: stripeSubscriptionId
+        });
+
+        // Normal subscription update flow
         const updateData = {
           stripeCustomerId: stripeCustomerId as string,
           stripeSubscriptionId,
@@ -165,29 +171,165 @@ export const planServices = {
           startDate: toDate(start_date) ?? new Date(),
           trialStart: toDate(trial_start),
           trialEnd: toDate(trial_end),
-          currentPeriodStart: toDate(current_period_start),
-          currentPeriodEnd: toDate(current_period_end),
-          nextBillingDate: toDate(current_period_end),
-          amount: planAmount ,
+          currentPeriodStart: toDate(currentPeriodStart),
+          currentPeriodEnd: toDate(currentPeriodEnd),
+          nextBillingDate: toDate(currentPeriodEnd),
+          amount: planAmount,
           currency,
+          cancellationReason:null,
           paymentMethodId:
             typeof default_payment_method === "string"
               ? default_payment_method
-              : (default_payment_method as any)?.id ?? "",
+              : (default_payment_method as any)?.id ?? null,
         };
 
         await SubscriptionModel.findOneAndUpdate(
-          { stripeCustomerId, stripeSubscriptionId },
+          { stripeCustomerId },
           { $set: updateData },
           { upsert: false }
         );
         break;
       }
 
+      /** ---------------------- TRIAL WILL END (NEW EVENT HANDLER) ---------------------- */
+      case "customer.subscription.trial_will_end": {
+        const sub = event.data.object as Stripe.Subscription;
+        const {
+          id: stripeSubscriptionId,
+          customer: stripeCustomerId,
+          default_payment_method,
+          trial_end
+        } = sub;
+
+        console.log(`🔔 Trial will end for subscription: ${stripeSubscriptionId}`);
+        
+        // Check if there's no payment method attached
+        if (!default_payment_method) {
+          console.log(`⚠️ No payment method found for subscription: ${stripeSubscriptionId}. Will cancel at trial end.`);
+          
+          try {
+            // Cancel the subscription at the end of trial period
+            await stripe.subscriptions.update(stripeSubscriptionId, {
+              cancel_at_period_end: true
+            });
+
+            // Update local database
+            await SubscriptionModel.findOneAndUpdate(
+              { stripeCustomerId, stripeSubscriptionId },
+              { 
+                $set: { 
+                  status: "canceled",
+                  cancellationReason: "no_payment_method_trial_end"
+                } 
+              },
+              { upsert: false }
+            );
+
+            console.log(`✅ Subscription ${stripeSubscriptionId} set to cancel at trial end due to no payment method`);
+          } catch (error) {
+            console.error(`❌ Failed to cancel subscription ${stripeSubscriptionId} at trial end:`, error);
+          }
+        } else {
+          console.log(`✅ Payment method exists for subscription: ${stripeSubscriptionId}. Trial will convert to paid subscription.`);
+        }
+        break;
+      }
+
+      /** ---------------------- INVOICE PAYMENT FAILED (Enhanced for trial end) ---------------------- */
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const subscriptionId = invoice.subscription as string;
+
+        console.log(`💳 Payment failed for invoice: ${invoice.id}, subscription: ${subscriptionId}`);
+
+        const existing = await SubscriptionModel.findOne({
+          stripeCustomerId: customerId,
+        });
+        if (!existing) break;
+
+        const userId = existing.userId;
+
+        // Check if this is a trial conversion failure
+        if (invoice.billing_reason === 'subscription_cycle' && existing.trialEnd) {
+          const trialEndDate = existing.trialEnd;
+          const now = new Date();
+          
+          // If trial just ended and payment failed, cancel immediately
+          if (now >= trialEndDate) {
+            console.log(`🔴 Trial ended and payment failed for subscription: ${subscriptionId}. Canceling immediately.`);
+            
+            try {
+              await stripe.subscriptions.cancel(subscriptionId, {
+                prorate: false,
+                invoice_now: false
+              });
+              
+              await SubscriptionModel.findOneAndUpdate(
+                { stripeSubscriptionId: subscriptionId },
+                { 
+                  $set: { 
+                    status: "canceled",
+                    cancellationReason: "trial_conversion_payment_failed"
+                  } 
+                }
+              );
+              
+              console.log(`✅ Subscription ${subscriptionId} canceled due to trial conversion payment failure`);
+            } catch (error) {
+              console.error(`❌ Failed to cancel subscription ${subscriptionId}:`, error);
+            }
+          }
+        }
+
+        const pi =
+          typeof invoice.payment_intent === "string"
+            ? await stripe.paymentIntents.retrieve(
+                invoice.payment_intent as string
+              )
+            : invoice.payment_intent;
+
+        let charge: Stripe.Charge | undefined;
+        if (pi?.id) {
+          const chargesList = await stripe.charges.list({
+            payment_intent: pi.id,
+          });
+          charge = chargesList.data[0];
+        }
+        const card = charge?.payment_method_details?.card;
+
+        await SubscriptionModel.updateOne(
+          { stripeSubscriptionId: subscriptionId },
+          { $set: { status: "past_due" } }
+        );
+
+        await TransactionModel.create({
+          userId,
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscriptionId,
+          invoiceId: invoice.id,
+          paymentIntentId: pi?.id,
+          status: "failed",
+          amount: invoice.amount_due / 100,
+          currency: invoice.currency,
+          paymentMethodDetails: {
+            brand: card?.brand ?? "unknown",
+            last4: card?.last4 ?? "0000",
+            expMonth: card?.exp_month ?? 0,
+            expYear: card?.exp_year ?? 0,
+            type: card ? "card" : "unknown",
+          },
+          billingReason: invoice.billing_reason ?? "subscription_cycle",
+          errorMessage: pi?.last_payment_error?.message ?? "Unknown failure",
+          paidAt: new Date(),
+        });
+        break;
+      }
+
       /** ---------------------- SUBSCRIPTION DELETED ---------------------- */
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        const { customer: stripeCustomerId, id } = sub;
+        const { customer: stripeCustomerId, id, cancellation_details } = sub;
 
         const existingSub = await SubscriptionModel.findOne({
           stripeCustomerId,
@@ -195,7 +337,9 @@ export const planServices = {
         }).lean();
 
         if (!existingSub) {
-          console.warn("⚠️ No existing subscription found for deletion event.");
+          console.warn(
+            "⚠️ No existing subscription found for deletion event."
+          );
           return;
         }
 
@@ -210,6 +354,8 @@ export const planServices = {
             currentPeriodEnd: null,
             currentPeriodStart: null,
             nextBillingDate: null,
+            cancellationReason:
+              cancellation_details?.reason || "payment_failed",
           },
         });
 
@@ -219,9 +365,7 @@ export const planServices = {
           const planData = await planModel.findById(nextPlanId);
           const newSub = await stripe.subscriptions.create({
             customer: stripeCustomerId as string,
-            items: [
-              { price: planData?.stripePrices },
-            ],
+            items: [{ price: planData?.stripePrices }],
             default_payment_method: paymentMethodId,
             expand: ["latest_invoice.payment_intent"],
           });
@@ -247,7 +391,18 @@ export const planServices = {
             nextPlanId: null,
           });
         } else {
-          await stripe.paymentMethods.detach(paymentMethodId);
+          if (paymentMethodId) {
+            try {
+              await stripe.paymentMethods.detach(paymentMethodId);
+              console.log(`✅ Detached payment method: ${paymentMethodId}`);
+            } catch (error) {
+              console.warn(
+                `⚠️ Could not detach payment method ${paymentMethodId}:`,
+                (error as Error).message
+              );
+              // Don't throw error - continue with cleanup
+            }
+          }
           await TokenModel.findOneAndDelete({ userId });
           // await SubscriptionModel.findByIdAndDelete(_id)
         }
@@ -294,16 +449,20 @@ export const planServices = {
           ? new Date(period.end * 1000)
           : null;
 
-        await SubscriptionModel.findOneAndUpdate(
-          { stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId },
-          {
-            $set: {
-              currentPeriodStart,
-              currentPeriodEnd,
-              nextBillingDate: currentPeriodEnd,
-            },
-          }
-        );
+        // await SubscriptionModel.findOneAndUpdate(
+        //   {
+        //     stripeCustomerId: customerId,
+        //     stripeSubscriptionId: subscriptionId,
+        //   },
+        //   {
+        //     $set: {
+        //       // currentPeriodStart,
+        //       // currentPeriodEnd,
+        //       // nextBillingDate: currentPeriodEnd,
+        //       status: "active", // Ensure status is active on successful payment
+        //     },
+        //   }
+        // );
 
         // Create transaction
         await TransactionModel.create({
@@ -328,63 +487,6 @@ export const planServices = {
         break;
       }
 
-      /** ---------------------- INVOICE PAYMENT FAILED ---------------------- */
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        const customerId = invoice.customer as string;
-
-        const existing = await SubscriptionModel.findOne({
-          stripeCustomerId: customerId,
-        });
-        if (!existing) break;
-
-        const subscriptionId = existing.stripeSubscriptionId;
-        const userId = existing.userId;
-
-        const pi =
-          typeof invoice.payment_intent === "string"
-            ? await stripe.paymentIntents.retrieve(
-                invoice.payment_intent as string
-              )
-            : invoice.payment_intent;
-
-        let charge: Stripe.Charge | undefined;
-        if (pi?.id) {
-          const chargesList = await stripe.charges.list({
-            payment_intent: pi.id,
-          });
-          charge = chargesList.data[0];
-        }
-        const card = charge?.payment_method_details?.card;
-
-        await SubscriptionModel.updateOne(
-          { stripeSubscriptionId: subscriptionId },
-          { $set: { status: "past_due" } }
-        );
-
-        await TransactionModel.create({
-          userId,
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: subscriptionId,
-          invoiceId: invoice.id,
-          paymentIntentId: pi?.id,
-          status: "failed",
-          amount: invoice.amount_due / 100,
-          currency: invoice.currency,
-          paymentMethodDetails: {
-            brand: card?.brand ?? "unknown",
-            last4: card?.last4 ?? "0000",
-            expMonth: card?.exp_month ?? 0,
-            expYear: card?.exp_year ?? 0,
-            type: card ? "card" : "unknown",
-          },
-          billingReason: invoice.billing_reason ?? "subscription_cycle",
-          errorMessage: pi?.last_payment_error?.message ?? "Unknown failure",
-          paidAt: new Date(),
-        });
-        break;
-      }
-
       /** ---------------------- CHECKOUT SESSION COMPLETED ---------------------- */
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -401,8 +503,8 @@ export const planServices = {
         const paymentMethodId = subscription.default_payment_method as string;
 
         const item = subscription.items?.data?.[0];
-        const planAmount = item?.price?.unit_amount ;
-        const currency = item?.price?.currency ;
+        const planAmount = item?.price?.unit_amount;
+        const currency = item?.price?.currency;
 
         await SubscriptionModel.findOneAndDelete({ userId });
         await UserModel.findByIdAndUpdate(userId, { hasUsedTrial: true });
@@ -420,7 +522,7 @@ export const planServices = {
           currentPeriodStart: toDate(subscription.current_period_start),
           currentPeriodEnd: toDate(subscription.current_period_end),
           nextBillingDate: toDate(subscription.current_period_end),
-          amount: planAmount / 100,
+          amount: planAmount ? planAmount / 100 : 0,
           currency,
           nextPlanId: null,
         });

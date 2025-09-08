@@ -16,6 +16,7 @@ export interface ISubscription extends Document {
   amount: number;
   currency: string;
   nextPlanId: Types.ObjectId;
+  cancellationReason:string;
 }
 
 const subscriptionSchema = new Schema<ISubscription>(
@@ -24,7 +25,7 @@ const subscriptionSchema = new Schema<ISubscription>(
     stripeCustomerId: { type: String, required: true },
     stripeSubscriptionId: { type: String, required: true },
     planId: { type: Schema.Types.ObjectId, ref: "plan", required: true },
-    paymentMethodId: { type: String, required: true },
+    paymentMethodId: { type: String, default:null },
     status: {
       type: String,
       enum: ["trialing", "active", "canceled", "canceling", "incomplete", "past_due"],
@@ -39,6 +40,7 @@ const subscriptionSchema = new Schema<ISubscription>(
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
     nextPlanId: { type: Schema.Types.ObjectId, ref: "plan", default: null },
+    cancellationReason:{type:String,default:null}
   },
   {
     timestamps: true, // adds createdAt and updatedAt

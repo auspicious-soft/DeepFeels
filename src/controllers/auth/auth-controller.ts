@@ -252,9 +252,9 @@ export const buyPlan = async (req: Request, res: Response) => {
     req.body.language = userData.language;
     const { planId, currency, paymentMethodId, freeTrial } = req.body;
 
-    if (!planId || !currency || !paymentMethodId) {
+    if (!planId || !currency ) {
       throw new Error(
-        "PlanId, Currency, Payment-Method and Customer-id is required"
+        "PlanId, Currency, and Customer-id is required"
       );
     }
     const response = await authServices.buyPlan({

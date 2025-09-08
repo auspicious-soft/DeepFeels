@@ -322,7 +322,7 @@ export const getDailyReflection = async (req: Request, res: Response) => {
       throw new Error("User info is not complete");
     }
     const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
-    if (!userInfo?.dob || !userInfo?.timeOfBirth || !userInfo?.birthPlace) {
+    if (!userInfo?.dob || !userInfo?.birthPlace) {
       return res.status(400).json({ message: "Incomplete user birth details" });
     }
 

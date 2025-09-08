@@ -196,7 +196,7 @@ export const authServices = {
       _id: userObj._id,
       user: userObj,
       token,
-      subscription: subscription?.status || null,
+      subscription: subscription || null,
       additionalInfo: additionalInfo || null,
       journalEncryption,
     };
@@ -306,7 +306,7 @@ export const authServices = {
       _id: userObj._id,
       user: userObj,
       token,
-      subscription: subscription?.status || null,
+      subscription: subscription || null,
       additionalInfo: additionalInfo || null,
       journalEncryption,
     };
@@ -522,125 +522,196 @@ export const authServices = {
 
   // 4. Check user & active plan
   const user = await UserModel.findById(id);
-  if (!user?.stripeCustomerId) throw new Error("stripeCustomerIdNotFound");
+  if (!user) throw new Error("userNotFound");
 
+  let stripeCustomerId = user.stripeCustomerId;
+
+  // Create Stripe customer if doesn't exist
+  if (!stripeCustomerId) {
+    try {
+      // First check if customer already exists with this email
+      const existingCustomers = await stripe.customers.list({
+        email: user.email,
+        limit: 1,
+      });
+
+      let customer;
+      if (existingCustomers.data.length > 0) {
+        customer = existingCustomers.data[0];
+        console.log(`Using existing Stripe customer: ${customer.id}`);
+      } else {
+        // Create new customer
+        customer = await stripe.customers.create({
+          email: user.email,
+          name: user.fullName,
+          phone: user.phone,
+          metadata: {
+            userId: id,
+            language: 'en',
+          },
+        });
+        console.log(`Created new Stripe customer: ${customer.id}`);
+      }
+
+      stripeCustomerId = customer.id;
+
+      // Update user with Stripe customer ID
+      await UserModel.updateOne(
+        { _id: id },
+        { $set: { stripeCustomerId: customer.id } }
+      );
+    } catch (error) {
+      console.error('Error creating Stripe customer:', error);
+      throw new Error("customerCreationFailed");
+    }
+  }
+
+  // 5. Check for active plan
   const activePlan = await SubscriptionModel.findOne({
     userId: id,
     status: "active",
   });
   if (activePlan) throw new Error("activePlanExist");
 
- 
+  // 6. Create subscription based on trial status
   if (freeTrial && !user.hasUsedTrial) {
-    const subscription = await stripe.subscriptions.create({
-        customer: user.stripeCustomerId,
-        items: [{ price: productPrice.id }],
-        trial_period_days: plans.trialDays,
-        default_payment_method: paymentMethodId,
-        expand: ["latest_invoice.payment_intent"],
-      });
+    // FREE TRIAL SUBSCRIPTION
+    const subscriptionOptions: any = {
+      customer: stripeCustomerId,
+      items: [{ price: productPrice.id }],
+      trial_period_days: plans.trialDays,
+      expand: ["latest_invoice.payment_intent"],
+      
+      // Allow subscription to exist even when payments fail after trial
+      payment_behavior: "allow_incomplete",
+      cancel_at_period_end: false,
+    };
 
-      user.hasUsedTrial = true;
-      user.isCardSetupComplete = true;
-      await user.save();
+    const subscription = await stripe.subscriptions.create(subscriptionOptions);
 
-      // Convert Unix timestamps to Date objects
-      const trialStart = subscription.trial_start
-        ? new Date(subscription.trial_start * 1000)
-        : null;
-      const trialEnd = subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
-        : null;
-      const startDate = new Date(subscription.start_date * 1000);
-      const currentPeriodStart = subscription.current_period_start
-        ? new Date(subscription.current_period_start * 1000)
-        : null;
-      const currentPeriodEnd = subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
-        : null;
-      const nextBillingDate = currentPeriodEnd;
+    // Update user flags
+    user.hasUsedTrial = true;
+    // Only set card as complete if payment method was provided
+    user.isCardSetupComplete = !!paymentMethodId;
+    await user.save();
 
-      // Save to DB
-      await SubscriptionModel.create({
-        userId: id,
-        stripeCustomerId: user.stripeCustomerId,
-        stripeSubscriptionId: subscription.id,
-        planId,
-        paymentMethodId,
-        status: subscription.status,
-        trialStart,
-        trialEnd,
-        startDate,
-        currentPeriodStart,
-        currentPeriodEnd,
-        nextBillingDate,
-        amount: subscription.items.data[0].price.unit_amount,
-        currency: subscription.currency,
-      });
-      let additionalInfo: any = [];
-    if (user.isUserInfoComplete && user.isCardSetupComplete) {
+    // Convert Unix timestamps to Date objects
+    const trialStart = subscription.trial_start
+      ? new Date(subscription.trial_start * 1000)
+      : null;
+    const trialEnd = subscription.trial_end
+      ? new Date(subscription.trial_end * 1000)
+      : null;
+    const startDate = new Date(subscription.start_date * 1000);
+    const currentPeriodStart = subscription.current_period_start
+      ? new Date(subscription.current_period_start * 1000)
+      : null;
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    const nextBillingDate = currentPeriodEnd;
+
+    // Save to DB with proper null handling
+    await SubscriptionModel.create({
+      userId: id,
+      stripeCustomerId: stripeCustomerId, // Use the variable, not user.stripeCustomerId which might be outdated
+      stripeSubscriptionId: subscription.id,
+      planId,
+      paymentMethodId: paymentMethodId || null, // Explicitly set to null if not provided
+      status: subscription.status,
+      trialStart,
+      trialEnd,
+      startDate,
+      currentPeriodStart,
+      currentPeriodEnd,
+      nextBillingDate,
+      amount: subscription.items.data[0].price.unit_amount,
+      currency: subscription.currency,
+    });
+
+    // Get additional user info
+    let additionalInfo: any = [];
+    if (user.isUserInfoComplete ) {
       additionalInfo = await UserInfoModel.findOne({
         userId: user._id,
       }).lean();
     }
+    console.log('additionalInfo:', additionalInfo);
 
     const journalEncryptionData = await JournalEncryptionModel.findOne(
       { userId: user._id },
-      { journalEncryptionPassword: 0 } // exclude password
+      { journalEncryptionPassword: 0 }
     ).lean();
 
     let journalEncryption = null;
     if (journalEncryptionData) {
-      journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+      journalEncryption = journalEncryptionData.journalEncryption;
     }
+const userSubscription = await SubscriptionModel.findOne({
+  userId: user._id,
+})
+.sort({createdAt:-1})
+.lean();
 
-      return {
-        _id: user._id,
+console.log('userSubscription:', userSubscription);
+
+
+    return {
+      _id: user._id,
       user: user,
       subscriptionId: subscription.id,
+      subscription: userSubscription || null,
       additionalInfo: additionalInfo || null,
       journalEncryption,
-      };
+      trialEndsAt: trialEnd,
+      hasPaymentMethod: !!paymentMethodId,
+    };
+
   } else {
+    // REGULAR SUBSCRIPTION (No trial or trial already used)
+    if (!paymentMethodId) throw new Error("paymentMethodIdRequired");
+
     const subscription = await stripe.subscriptions.create({
-        customer: user.stripeCustomerId,
-        items: [{ price: productPrice.id }],
-        default_payment_method: paymentMethodId,
-        expand: ["latest_invoice.payment_intent"],
-      });
+      customer: stripeCustomerId, // Use the variable, not user.stripeCustomerId
+      items: [{ price: productPrice.id }],
+      default_payment_method: paymentMethodId,
+      expand: ["latest_invoice.payment_intent"],
+    });
 
-      user.hasUsedTrial = true;
-      user.isCardSetupComplete = true;
-      await user.save();
+    user.hasUsedTrial = true;
+    user.isCardSetupComplete = true;
+    await user.save();
 
-      const startDate = new Date(subscription.start_date * 1000);
-      const currentPeriodStart = subscription.current_period_start
-        ? new Date(subscription.current_period_start * 1000)
-        : null;
-      const currentPeriodEnd = subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000)
-        : null;
-      const nextBillingDate = currentPeriodEnd;
+    const startDate = new Date(subscription.start_date * 1000);
+    const currentPeriodStart = subscription.current_period_start
+      ? new Date(subscription.current_period_start * 1000)
+      : null;
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    const nextBillingDate = currentPeriodEnd;
 
-      await SubscriptionModel.findOneAndDelete({ userId: id });
+    // Remove any existing subscription before creating new one
+    await SubscriptionModel.findOneAndDelete({ userId: id });
 
-      await SubscriptionModel.create({
-        userId: id,
-        stripeCustomerId: user.stripeCustomerId,
-        stripeSubscriptionId: subscription.id,
-        planId,
-        paymentMethodId,
-        status: subscription.status,
-        startDate,
-        currentPeriodStart,
-        currentPeriodEnd,
-        nextBillingDate,
-        amount: subscription.items.data[0].price.unit_amount,
-        currency: subscription.currency,
-      });
+    await SubscriptionModel.create({
+      userId: id,
+      stripeCustomerId: stripeCustomerId, // Use the variable, not user.stripeCustomerId
+      stripeSubscriptionId: subscription.id,
+      planId,
+      paymentMethodId,
+      status: subscription.status,
+      startDate,
+      currentPeriodStart,
+      currentPeriodEnd,
+      nextBillingDate,
+      amount: subscription.items.data[0].price.unit_amount,
+      currency: subscription.currency,
+    });
 
-       let additionalInfo: any = [];
-    if (user.isUserInfoComplete && user.isCardSetupComplete) {
+    // Get additional user info
+    let additionalInfo: any = [];
+    if (user.isUserInfoComplete ) {
       additionalInfo = await UserInfoModel.findOne({
         userId: user._id,
       }).lean();
@@ -648,21 +719,28 @@ export const authServices = {
 
     const journalEncryptionData = await JournalEncryptionModel.findOne(
       { userId: user._id },
-      { journalEncryptionPassword: 0 } // exclude password
+      { journalEncryptionPassword: 0 }
     ).lean();
 
     let journalEncryption = null;
     if (journalEncryptionData) {
-      journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+      journalEncryption = journalEncryptionData.journalEncryption;
     }
-
-      return {
-          _id: user._id,
+      const userSubscription = await SubscriptionModel.findOne({
+          userId: user._id,
+        })
+        .sort({createdAt:-1})
+        .lean();
+    
+    return {
+      _id: user._id,
       user: user,
       subscriptionId: subscription.id,
+      subscription: userSubscription || null,
       additionalInfo: additionalInfo || null,
       journalEncryption,
-      };
+      hasPaymentMethod: true,
+    };
   }
 },
 
@@ -672,7 +750,7 @@ export const authServices = {
     const subscription = await SubscriptionModel.findOne({
       userId: userId,
     });
-    return { ...user?.toObject(), subscription: subscription?.status || null };
+    return { ...user?.toObject(), subscription: subscription || null };
   },
   async buyAgain(payload: any) {
     const { userId, planId,paymentMethodId } = payload;
@@ -681,6 +759,8 @@ export const authServices = {
     if (!checkSub || !["past_due", "canceled"].includes(checkSub.status)) {
       throw new Error("planExist");
     }
+     const user = await UserModel.findById(userId);
+     if (!user) throw new Error("userNotFound");
 
     const { currency } = checkSub;
     const planData = await planModel.findById(planId);
@@ -733,10 +813,40 @@ export const authServices = {
         { session }
       );
 
+      user.isCardSetupComplete = true
+      await user.save()
+// Get additional user info
+    let additionalInfo: any = [];
+    if (user.isUserInfoComplete ) {
+      additionalInfo = await UserInfoModel.findOne({
+        userId: userId,
+      }).lean();
+    }
+
+    const journalEncryptionData = await JournalEncryptionModel.findOne(
+      { userId: userId },
+      { journalEncryptionPassword: 0 }
+    ).lean();
+
+    let journalEncryption = null;
+    if (journalEncryptionData) {
+      journalEncryption = journalEncryptionData.journalEncryption;
+    }
+     const userSubscription = await SubscriptionModel.findOne({ userId })
+  .sort({ createdAt: -1 })
+  .lean()
       // Commit the transaction
       await session.commitTransaction();
       session.endSession();
-      return {};
+      return {
+        _id: user._id,
+      user: user,
+      subscriptionId: subscription.id,
+      subscription: userSubscription || null,
+      additionalInfo: additionalInfo || null,
+      journalEncryption,
+      hasPaymentMethod: true,
+      };
     } catch (err) {
       console.log('err:', err);
       // Rollback on error
