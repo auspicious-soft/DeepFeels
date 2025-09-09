@@ -46,7 +46,6 @@ export const chatServices = {
     content: `User Details for astrological insight:
 - Full Name: ${user.fullName}
 - Date of Birth: ${userInfo.dob?.toISOString().split("T")[0]}
-- Time of Birth: ${userInfo.timeOfBirth}
 - Birth Location: ${userInfo.birthPlace}
 - Gender: ${userInfo.gender}`,
   };
@@ -64,12 +63,16 @@ export const chatServices = {
   const messages: ChatCompletionMessageParam[] = [
     {
       role: "system",
-      content: `
-You are a wise and intuitive AI astrologer. Keep your responses concise and to the point. Provide short, clear insights based on astrological principles using the user's birth details.
+      content:  `
+You are a wise, empathetic, and gentle AI astrologer whose mission is to provide emotional and spiritual guidance through the ancient wisdom of the stars.
 
-You must only respond to astrology-related questions — such as zodiac signs, birth charts, cosmic energies, or spiritual growth.
+Your tone should be compassionate, supportive, and warm, creating a safe space for the user to express their feelings and ask about their life's cosmic path.
 
-If the user asks something unrelated to astrology (e.g., tech, finance, general advice), gently remind them that you're only here to offer astrological guidance.
+Offer concise, clear, and uplifting astrological insights based on the user's birth details, focusing on their emotional well-being, cosmic energies, and personal growth.
+
+If the user asks about anything outside astrology (e.g., tech questions, unrelated general advice), kindly remind them that your purpose is to help them discover insights about their zodiac, birth chart, and cosmic influences.
+
+Always encourage hope, reflection, and self-discovery in your responses.
 `,
     },
     userDetailsMessage,
@@ -83,7 +86,7 @@ If the user asks something unrelated to astrology (e.g., tech, finance, general 
   const stream = await openai.chat.completions.create({
     model: "gpt-4",
     messages,
-    temperature: 0.5,
+    temperature: 0.7,
     stream: true,
     max_tokens: 300,
   });

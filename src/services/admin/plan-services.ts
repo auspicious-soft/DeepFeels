@@ -218,7 +218,7 @@ async handleStripeWebhook(req: Request) {
               { stripeCustomerId, stripeSubscriptionId },
               { 
                 $set: { 
-                  status: "canceled",
+                  status: "canceling",
                   cancellationReason: "no_payment_method_trial_end"
                 } 
               },
@@ -403,12 +403,11 @@ async handleStripeWebhook(req: Request) {
               // Don't throw error - continue with cleanup
             }
           }
-          await TokenModel.findOneAndDelete({ userId });
+          // await TokenModel.findOneAndDelete({ userId });
           // await SubscriptionModel.findByIdAndDelete(_id)
         }
         break;
       }
-
       /** ---------------------- INVOICE PAYMENT SUCCEEDED ---------------------- */
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;

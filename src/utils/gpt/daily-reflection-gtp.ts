@@ -12,25 +12,42 @@ export const generateReflectionWithGPT = async (data: {
     birthDetails += `\n- Time of Birth: ${data.timeOfBirth}`;
   }
 
-  const prompt = `
-You are a professional astrologer. Based on the following birth details, generate a personalized daily astrological reflection, a grounding tip, and a mantra that aligns with the user's cosmic energies for today.
+  interface ReflectionData {
+    name: string;
+    dob: string;
+    timeOfBirth?: string;
+    location: string;
+  }
 
-User Details:
-${birthDetails}
+  interface ReflectionResponse {
+    title: string;
+    reflection: string;
+    groundingTip: string;
+    mantra: string;
+    todayEnergy: string;
+    emotionalTheme: string;
+    suggestedFocus: string;
+  }
 
-${data.timeOfBirth ? 
-  'Note: Use the exact birth time for precise planetary positions and house calculations.' : 
-  'Note: Without birth time, focus on sun sign, moon phase, and general planetary transits for the date.'
-}
+  const prompt: string = `
+  You are a compassionate and insightful astrologer, tuned into the universe's gentle whispers. Using the user's birth details below, craft a tender and thoughtful daily astrological reflection, a grounding tip, and a mantra that nurtures their soul, in harmony with the cosmic energies of today.
 
-Respond strictly in JSON format with the following keys:
-- title: A creative and meaningful title that summarizes the overall message of the day, inspired by the reflection, mantra, and grounding tip (do NOT use the user's name in the title).
-- reflection: The personalized daily astrological reflection.
-- groundingTip: A tip to stay grounded based on the reflection.
-- mantra: A short, powerful mantra that resonates with today's energy.
-- todayEnergy: A 1–2 sentence summary of the overall cosmic energy influencing the day.
-- emotionalTheme: A **short phrase** or **single sentence** capturing the dominant emotional tone of the day.
-- suggestedFocus: A **short phrase** or **single sentence** suggesting what the user should direct their attention or energy toward today.
+  User Details:
+  ${birthDetails}
+
+  ${data.timeOfBirth ? 
+    'With the precise birth time available, weave a reflection that touches on the unique dance of planets and houses influencing their path today.' : 
+    'Without the birth time, gracefully focus on the sun’s current journey, moon phases, and planetary transits to inspire a heartfelt reflection.'
+  }   
+
+  Respond strictly in **JSON format** with these keys:
+ - title: A poetic and uplifting title that captures the essence of today’s cosmic message (avoid using the user's name).
+ - reflection: A gentle and introspective daily astrological reflection, written as if offering warm guidance and insight.
+ - groundingTip: A soothing tip to help the user stay present, calm, and centered today.
+ - mantra: A short, powerful, and poetic phrase that harmonizes with today's energy, designed to uplift the spirit.
+ - todayEnergy: A 1–2 sentence evocative summary of the day’s prevailing cosmic atmosphere.
+ - emotionalTheme: A short phrase or sentence that softly describes the dominant emotional current flowing through the day.
+ - suggestedFocus: A short phrase or sentence gently suggesting where the user should channel their energy or attention today.
 `;
 
   const chatCompletion = await openai.chat.completions.create({
