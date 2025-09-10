@@ -400,7 +400,7 @@ export const authServices = {
 
     if (birthPlace) userInfoUpdate.birthPlace = birthPlace;
     if (timeOfBirth !== undefined) userInfoUpdate.timeOfBirth = timeOfBirth;
-    if (dob) userInfoUpdate.dob = dob;
+    if (dob) userInfoUpdate.dob = dob.split("T")[0]; // Store only date part
     if (gender) userInfoUpdate.gender = gender;
 
     const data = await UserInfoModel.findOneAndUpdate(
