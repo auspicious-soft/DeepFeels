@@ -162,12 +162,24 @@ async handleStripeWebhook(req: Request) {
           currentPeriodEnd,
           subscription: stripeSubscriptionId
         });
+       let computedStatus = status;
+
+if (status === "trialing") {
+  computedStatus = "trialing";
+} else if (status === "active" && !cancel_at_period_end) {
+  computedStatus = "active";
+} else if (status === "active" && cancel_at_period_end) {
+  (computedStatus as string) = "canceling";
+} else if (cancel_at_period_end) {
+  (computedStatus as string) = "canceling";
+}
+
 
         // Normal subscription update flow
         const updateData = {
           stripeCustomerId: stripeCustomerId as string,
           stripeSubscriptionId,
-          status: cancel_at_period_end ? "canceling" : status,
+          status: computedStatus,
           startDate: toDate(start_date) ?? new Date(),
           trialStart: toDate(trial_start),
           trialEnd: toDate(trial_end),

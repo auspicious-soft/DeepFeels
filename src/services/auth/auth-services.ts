@@ -583,8 +583,8 @@ export const authServices = {
       expand: ["latest_invoice.payment_intent"],
       
       // Allow subscription to exist even when payments fail after trial
-      payment_behavior: "allow_incomplete",
-      cancel_at_period_end: false,
+     payment_behavior: "allow_incomplete",
+  cancel_at_period_end: !paymentMethodId,
     };
 
     const subscription = await stripe.subscriptions.create(subscriptionOptions);
