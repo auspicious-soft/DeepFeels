@@ -13,21 +13,23 @@ export const getAstroDataFromGPT = async ({
   birthPlace: string;
   gender?: string;
 }) => {
-  const prompt = `Based on the birth details:
+  const prompt = `You are an expert Vedic astrologer. Given the following birth details
 - Full Name: ${fullName}
 - Date of Birth: ${dob}
 - Time of Birth: ${timeOfBirth || "Not provided"}
 - Birth Place: ${birthPlace}
-- Gender: ${gender || "Not provided"}
+- Gender: ${gender}
 
-Give me strictly in JSON format with the following fields:
+Please analyze the birth chart and respond in **strict JSON format** with the following fields:
 {
   "sunSign": "<Sun sign>",
   "zodiacSign": "<One of: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces>",
   "birthStar": "<Nakshatra / Birth star>",
   "moonSign": "<Moon sign>",
   "personalityKeywords": ["<keyword1>", "<keyword2>", "<keyword3>"]
-}`;
+}
+
+Be sure to provide accurate values based on traditional Vedic astrology principles. Do not include any additional explanations, just the required JSON response.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4",
