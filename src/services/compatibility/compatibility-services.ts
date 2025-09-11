@@ -19,7 +19,8 @@ export const generateCompatibilityResultService = async (userId: string, partner
         personalityKeywords: userInfo["personalityKeywords"] || [],
         birthStar: userInfo["birthStar"],
         sunSign: userInfo["sunSign"],
-        moonSign:userInfo["moonSign"]
+        moonSign:userInfo["moonSign"],
+        risingStar:userInfo["risingStar"]
       };
     } else {
       userAstroData = await getAstroDataFromGPT({
@@ -39,7 +40,8 @@ export const generateCompatibilityResultService = async (userId: string, partner
             personalityKeywords: userAstroData.personalityKeywords,
             birthStar: userAstroData.birthStar,
             sunSign: userAstroData.sunSign,
-            moonSign:userAstroData.moonSign
+            moonSign:userAstroData.moonSign,
+            risingStar:userAstroData.risingStar
           },
         }
       );

@@ -45,7 +45,7 @@ export const chatServices = {
     role: "user",
     content: `User Details for astrological insight:
 - Full Name: ${user.fullName}
-- Date of Birth: ${userInfo.dob?.toISOString().split("T")[0]}
+- Date of Birth: ${userInfo.dob}
 - Birth Location: ${userInfo.birthPlace}
 - Gender: ${userInfo.gender}`,
   };

@@ -17,6 +17,7 @@ import { TokenModel } from "src/models/user/token-schema";
 import { AdminModel } from "src/models/admin/admin-schema";
 import { OAuth2Client } from "google-auth-library";
 import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
+import { getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
 
 configDotenv();
 
@@ -169,7 +170,7 @@ export const authServices = {
     checkExist.save();
 
     let additionalInfo: any = [];
-    if (checkExist.isUserInfoComplete && checkExist.isCardSetupComplete) {
+    if (checkExist.isUserInfoComplete ) {
       additionalInfo = await UserInfoModel.findOne({
         userId: checkExist._id,
       }).lean();
@@ -285,7 +286,7 @@ export const authServices = {
       userId: checkExist._id,
     }).sort({ createdAt: -1 });
     let additionalInfo: any = [];
-    if (checkExist.isUserInfoComplete && checkExist.isCardSetupComplete) {
+    if (checkExist.isUserInfoComplete ) {
       additionalInfo = await UserInfoModel.findOne({
         userId: checkExist._id,
       }).lean();
@@ -386,38 +387,63 @@ export const authServices = {
     return {};
   },
 
-  async userMoreInfo(payload: any) {
-    const { timeOfBirth, birthPlace, dob, gender, userData } = payload;
-    const checkUser = await UserModel.findOne({
-      _id: userData.id,
-      isVerifiedEmail: true,
-    });
-    if (!checkUser) {
-      throw new Error("userNotFound");
+ async userMoreInfo(payload: any) {
+  const { timeOfBirth, birthPlace, dob, gender, userData } = payload;
+
+  const checkUser = await UserModel.findOne({
+    _id: userData.id,
+    isVerifiedEmail: true,
+  });
+
+  if (!checkUser) {
+    throw new Error("userNotFound");
+  }
+
+  // Dynamically build update object
+  const userInfoUpdate: { [key: string]: any } = {};
+
+  if (birthPlace) userInfoUpdate.birthPlace = birthPlace;
+  if (timeOfBirth !== undefined) userInfoUpdate.timeOfBirth = timeOfBirth;
+  if (dob) userInfoUpdate.dob = dob; 
+  if (gender) userInfoUpdate.gender = gender;
+
+  // Update UserInfo
+  const newData = await UserInfoModel.findOneAndUpdate(
+    { userId: checkUser._id },
+    { $set: userInfoUpdate },
+    { new: true }
+  );
+
+  // Mark user info as complete
+  checkUser.isUserInfoComplete = true;
+  await checkUser.save();
+
+  // Generate fresh Astro Data after update
+  const userAstroData = await getAstroDataFromGPT({
+    fullName: checkUser.fullName,
+    dob: newData?.dob,
+    timeOfBirth: newData?.timeOfBirth,
+    birthPlace: newData?.birthPlace,
+    gender: newData?.gender,
+  });
+
+  await UserInfoModel.updateOne(
+    { userId: checkUser._id },
+    {
+      $set: {
+        zodiacSign: userAstroData.zodiacSign,
+        personalityKeywords: userAstroData.personalityKeywords,
+        birthStar: userAstroData.birthStar,
+        sunSign: userAstroData.sunSign,
+        moonSign: userAstroData.moonSign,
+        risingStar: userAstroData.risingStar,
+      },
     }
-    // Dynamically build update object
-    const userInfoUpdate: { [key: string]: any } = {};
+  );
 
-    if (birthPlace) userInfoUpdate.birthPlace = birthPlace;
-    if (timeOfBirth !== undefined) userInfoUpdate.timeOfBirth = timeOfBirth;
-    if (dob) userInfoUpdate.dob = dob.split("T")[0]; // Store only date part
-    if (gender) userInfoUpdate.gender = gender;
-
-    const data = await UserInfoModel.findOneAndUpdate(
-      {
-        userId: checkUser._id,
-      },
-      {
-        $set: userInfoUpdate,
-      },
-      { new: true }
-    );
-
-    checkUser.isUserInfoComplete = true;
-    await checkUser.save();
-
-    return data;
-  },
+   const data = await UserInfoModel.findOne({ userId: checkUser._id }).lean();
+  return data;
+},
 
   async getPlans(payload: any) {
     const { language } = payload;

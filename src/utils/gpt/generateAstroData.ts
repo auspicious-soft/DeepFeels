@@ -8,7 +8,7 @@ export const getAstroDataFromGPT = async ({
   gender,
 }: {
   fullName: any;
-  dob: any;
+  dob: string;
   timeOfBirth?: string;
   birthPlace: string;
   gender?: string;
@@ -19,6 +19,7 @@ export const getAstroDataFromGPT = async ({
 - Time of Birth: ${timeOfBirth || "Not provided"}
 - Birth Place: ${birthPlace}
 - Gender: ${gender}
+- Note: The Time of Birth provided is based on the local time zone of the Birth Place.
 
 Please analyze the birth chart and respond in **strict JSON format** with the following fields:
 {
@@ -26,7 +27,8 @@ Please analyze the birth chart and respond in **strict JSON format** with the fo
   "zodiacSign": "<One of: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces>",
   "birthStar": "<Nakshatra / Birth star>",
   "moonSign": "<Moon sign>",
-  "personalityKeywords": ["<keyword1>", "<keyword2>", "<keyword3>"]
+  "personalityKeywords": ["<keyword1>", "<keyword2>", "<keyword3>"],
+  "risingStar": "<Rising sign / Ascendant>"
 }
 
 Be sure to provide accurate values based on traditional Vedic astrology principles. Do not include any additional explanations, just the required JSON response.`;

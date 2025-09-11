@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 import { TokenModel } from "src/models/user/token-schema";
 import axios from "axios";
 import jwkToPem from "jwk-to-pem";
+import { DateTime } from "luxon";
 
 configDotenv();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -132,4 +133,35 @@ export async function verifyAppleToken(idToken: string) {
   }
 
   return payload;
+}
+
+export async function convertToUTC(dateString:string, timeZone:string) {
+  // Parse date string in the given time zone
+  const zonedDate = DateTime.fromISO(dateString, { zone: timeZone });
+
+  if (!zonedDate.isValid) {
+    throw new Error("Invalid date or time zone");
+  }
+
+  // Convert to UTC and return ISO string
+  return zonedDate.toUTC().toISO();
+}
+
+export async function convertUTCToLocal(utcDateString: string, timeZone: string) {
+  // Parse the UTC date
+  const utcDate = DateTime.fromISO(utcDateString, { zone: 'utc' });
+  
+  if (!utcDate.isValid) {
+    throw new Error("Invalid UTC date");
+  }
+  
+  // Convert to the specified time zone
+  const localDate = utcDate.setZone(timeZone);
+  
+  if (!localDate.isValid) {
+    throw new Error("Invalid time zone");
+  }
+  
+  // Return in YYYY-MM-DD format
+  return localDate.toFormat('yyyy-MM-dd');
 }

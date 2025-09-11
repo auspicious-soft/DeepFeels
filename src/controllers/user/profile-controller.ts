@@ -51,6 +51,7 @@ export const getUser = async (req: Request, res: Response) => {
     const response = await profileServices.getUser({
       userData,
     });
+    console.log('response:', response);
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
     if (err.message) {
@@ -339,7 +340,7 @@ export const getDailyReflection = async (req: Request, res: Response) => {
     } else {
       const generated = await generateReflectionWithGPT({
         name: userData.fullName,
-        dob: userInfo.dob.toISOString().split("T")[0],
+        dob: userInfo.dob,
         timeOfBirth: userInfo.timeOfBirth,
         location: userInfo.birthPlace,
       });

@@ -10,6 +10,7 @@ import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { genders } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
+import { getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
 import { generateToken, hashPassword, verifyPassword } from "src/utils/helper";
 
 configDotenv();
@@ -17,23 +18,23 @@ configDotenv();
 export const homeServices = {
 getUserHome: async (payload: any) => {
   const user = payload.userData;
+  const userId = user.id;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // 1. Get or generate daily reflection
   let dailyReflection = await DailyReflectionModel.findOne({
-    userId: user.id,
+    userId: userId,
     date: today,
   }).lean();
 
   console.log('Existing daily reflection:', dailyReflection);
 
   if (!dailyReflection) {
-    const userData = await UserModel.findById(user.id).lean();
-    const userInfo = await UserInfoModel.findOne({ userId: user.id }).lean();
+    const userData = await UserModel.findById(userId).lean();
+    const userInfo = await UserInfoModel.findOne({ userId }).lean();
 
-    // Debug logging to see what data we have
     console.log('User data:', {
       fullName: userData?.fullName,
       dob: userInfo?.dob,
@@ -41,38 +42,82 @@ getUserHome: async (payload: any) => {
       birthPlace: userInfo?.birthPlace,
     });
 
-    // Check if minimum required fields exist (timeOfBirth is now optional)
-    const hasRequiredData = userData?.fullName && 
-                           userInfo?.dob && 
-                           userInfo?.birthPlace;
+    const hasRequiredData = userData?.fullName &&
+                            userInfo?.dob &&
+                            userInfo?.birthPlace;
 
     console.log('Has all required data:', hasRequiredData);
 
     if (hasRequiredData) {
       try {
-        // Prepare the data object - timeOfBirth is optional
+        // --- 1️⃣ Get or generate Astro Data ---
+        let userAstroData: any = null;
+
+        if (userInfo["zodiacSign"]) {
+          userAstroData = {
+            zodiacSign: userInfo["zodiacSign"],
+            personalityKeywords: userInfo["personalityKeywords"] || [],
+            birthStar: userInfo["birthStar"],
+            sunSign: userInfo["sunSign"],
+            moonSign: userInfo["moonSign"],
+            risingStar: userInfo["risingStar"]
+          };
+        } else {
+          userAstroData = await getAstroDataFromGPT({
+            fullName: userData?.fullName,
+            dob: userInfo.dob,
+            timeOfBirth: userInfo.timeOfBirth,
+            birthPlace: userInfo.birthPlace,
+            gender: userInfo.gender,
+          });
+
+          await UserInfoModel.updateOne(
+            { userId },
+            {
+              $set: {
+                zodiacSign: userAstroData.zodiacSign,
+                personalityKeywords: userAstroData.personalityKeywords,
+                birthStar: userAstroData.birthStar,
+                sunSign: userAstroData.sunSign,
+                moonSign: userAstroData.moonSign,
+                risingStar: userAstroData.risingStar
+              },
+            }
+          );
+        }
+
+        // --- 2️⃣ Prepare data for Reflection Generation ---
         const generationData: {
           name: string;
           dob: any;
           timeOfBirth?: string;
           location: any;
+          zodiacSign?: string;
+          sunSign?: string;
+          moonSign?: string;
+          birthStar?: string;
+          personalityKeywords?: string[];
         } = {
           name: userData.fullName,
-          dob: userInfo.dob?.toISOString().split("T")[0],
-          location: userInfo.birthPlace,
+          dob: userInfo?.dob,
+          location: userInfo?.birthPlace,
+          zodiacSign: userAstroData?.zodiacSign,
+          sunSign: userAstroData?.sunSign,
+          moonSign: userAstroData?.moonSign,
+          birthStar: userAstroData?.birthStar,
+          personalityKeywords: userAstroData?.personalityKeywords,
         };
 
-        // Only add timeOfBirth if it exists
         if (userInfo.timeOfBirth) {
           generationData.timeOfBirth = userInfo.timeOfBirth;
         }
 
         const generated = await generateReflectionWithGPT(generationData);
-        
+
         console.log('Generated reflection:', generated);
 
         const saved = await DailyReflectionModel.create({
-          userId: user.id,
+          userId: userId,
           date: today,
           ...generated,
         });
@@ -81,26 +126,24 @@ getUserHome: async (payload: any) => {
         console.log('Saved daily reflection:', dailyReflection);
       } catch (error) {
         console.error('Error generating or saving reflection:', error);
-        // You might want to handle this error differently
-        // For now, we'll continue with null dailyReflection
       }
     } else {
       console.log('Missing required user data for generating reflection');
     }
   }
 
-  // 2. Get today's mood (if available)
+  // 3. Get today's mood (if available)
   const startOfDay = new Date(today);
   const endOfDay = new Date(today);
   endOfDay.setHours(23, 59, 59, 999);
 
   const moodDoc = await moodModel.findOne({
-    userId: user.id,
+    userId: userId,
     date: { $gte: startOfDay, $lte: endOfDay },
   }).lean();
 
   const subscription = await SubscriptionModel.findOne({
-    userId: user.id,
+    userId: userId,
   });
 
   return {
@@ -110,6 +153,7 @@ getUserHome: async (payload: any) => {
     moodNotSet: !moodDoc,
   };
 },
+
 };
 
 export const profileServices = {
@@ -155,11 +199,12 @@ export const profileServices = {
   },
 
 updateUser: async (payload: any) => {
-  // Define dynamic update objects
+  const userId = payload.id;
+
+  // 1️⃣ Define dynamic update objects
   let userUpdateInfo: { [key: string]: any } = {};
   let updatedUserData: { [key: string]: any } = {};
 
-  // Conditionally populate UserInfo update fields
   if (payload.dob) {
     userUpdateInfo.dob = payload.dob;
   }
@@ -170,7 +215,6 @@ updateUser: async (payload: any) => {
     userUpdateInfo.birthPlace = payload.birthPlace;
   }
 
-  // Conditionally populate User update fields
   if (payload.fullName) {
     updatedUserData.fullName = payload.fullName;
   }
@@ -184,36 +228,79 @@ updateUser: async (payload: any) => {
     updatedUserData.image = payload.image;
   }
 
-  // Update UserInfo model
+  // 2️⃣ Update UserInfo model
   const additionalInfo = await UserInfoModel.findOneAndUpdate(
-    { userId: payload.id },
+    { userId: userId },
     { $set: userUpdateInfo },
     { new: true }
   ).lean();
 
-  // Update User model
+  // 3️⃣ Update User model
   const user = await UserModel.findByIdAndUpdate(
-    payload.id,
+    userId,
     { $set: updatedUserData },
     { new: true }
   ).lean();
-  
-           const journalEncryptionData = await JournalEncryptionModel.findOne(
-    { userId: payload.id },
-    { journalEncryptionPassword: 0 } // exclude password
+
+  // 4️⃣ Get Journal Encryption Data
+  const journalEncryptionData = await JournalEncryptionModel.findOne(
+    { userId: userId },
+    { journalEncryptionPassword: 0 }
   ).lean();
-  
+
   let journalEncryption = null;
   if (journalEncryptionData) {
-    journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+    journalEncryption = journalEncryptionData.journalEncryption;
   }
+
+  // 5️⃣ Always Generate Fresh Astro Data after update
+  const userInfo = await UserInfoModel.findOne({ userId: userId });
+  const userData = await UserModel.findById(userId).select("fullName gender");
+
+  let userAstroData: any = null;
+
+  if (userInfo?.dob && userInfo?.birthPlace) {
+    userAstroData = await getAstroDataFromGPT({
+      fullName: userData?.fullName,
+      dob: userInfo.dob,
+      timeOfBirth: userInfo.timeOfBirth,
+      birthPlace: userInfo.birthPlace,
+      gender: userData?.gender,
+    });
+
+    await UserInfoModel.updateOne(
+      { userId: userId },
+      {
+        $set: {
+          zodiacSign: userAstroData.zodiacSign,
+          personalityKeywords: userAstroData.personalityKeywords,
+          birthStar: userAstroData.birthStar,
+          sunSign: userAstroData.sunSign,
+          moonSign: userAstroData.moonSign,
+          risingStar: userAstroData.risingStar
+        },
+      }
+    );
+  } else {
+    throw new Error("User birth details incomplete for generating astrological data.");
+  }
+
+  const userMoreInfo = await UserInfoModel.findOne(
+    { userId: userId },
+  ).lean();
+  const subscription = await SubscriptionModel.findOne({
+      userId: userId,
+    }).sort({ createdAt: -1 });
+
   return {
-    _id: payload.id,
+    _id: userId,
     user,
-    additionalInfo,
-    journalEncryption
+    subscription:subscription || null,
+    additionalInfo: userMoreInfo,
+    journalEncryption,
   };
 },
+
 
   changePassword: async (payload: any) => {
     const { id, oldPassword, newPassword } = payload;

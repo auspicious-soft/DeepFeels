@@ -3,7 +3,7 @@ import { genders } from "src/utils/constant";
 
 export interface IUserInfo extends Document {
   userId: mongoose.Types.ObjectId;
-  dob?: Date;
+  dob?: string;
   timeOfBirth?: string;
   birthPlace?: string;
   createdAt?: Date;
@@ -15,6 +15,8 @@ export interface IUserInfo extends Document {
   moonSign?: string;
   birthStar?: string;
   personalityKeywords?:string[]
+  risingStar:string;
+  timeZone?:string;
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -26,7 +28,7 @@ const userSchema = new Schema<IUserInfo>(
       unique: true,
     },
     dob: {
-      type: Date,
+      type: String,
       default: null,
     },
     timeOfBirth: {
@@ -59,6 +61,14 @@ const userSchema = new Schema<IUserInfo>(
       default: null,
     },
     birthStar: {
+      type: String,
+      default: null,
+    },
+    risingStar:{
+      type: String,
+      default: null,
+    },
+    timeZone:{
       type: String,
       default: null,
     },
