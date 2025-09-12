@@ -313,7 +313,7 @@ updateUser: async (payload: any) => {
         dob: additionalInfo.dob,
         timeOfBirth: additionalInfo.timeOfBirth,
         birthPlace: additionalInfo.birthPlace,
-        gender: additionalInfo.gender || user.gender,
+        gender: additionalInfo.gender ,
         timezone: additionalInfo.timeZone,
         utcDate: additionalInfo.dobUTC ? true : false,
         dobUTC: additionalInfo.dobUTC || undefined,
