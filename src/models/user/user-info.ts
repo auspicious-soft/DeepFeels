@@ -17,6 +17,9 @@ export interface IUserInfo extends Document {
   personalityKeywords?:string[]
   risingStar:string;
   timeZone?:string;
+  birthTimezoneOffset?:number;
+  dobUTC?:string;
+  birthTimezoneOffsetName?:string;
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -28,7 +31,7 @@ const userSchema = new Schema<IUserInfo>(
       unique: true,
     },
     dob: {
-      type: String,
+      type: Date,
       default: null,
     },
     timeOfBirth: {
@@ -71,6 +74,18 @@ const userSchema = new Schema<IUserInfo>(
     timeZone:{
       type: String,
       default: null,
+    },
+    birthTimezoneOffset:{
+      type:Number,
+      default:null
+    },
+    dobUTC:{
+      type: Date,
+      default: null
+    },
+    birthTimezoneOffsetName:{
+      type:String,
+      default:null
     },
     personalityKeywords:[
       {

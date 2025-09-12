@@ -11,7 +11,7 @@ import { UserModel } from "src/models/user/user-schema";
 import { genders } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
 import { getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
-import { generateToken, hashPassword, verifyPassword } from "src/utils/helper";
+import { convertToUTC, generateToken, getTimezoneInfo, hashPassword, isValidTimezone, verifyPassword } from "src/utils/helper";
 
 configDotenv();
 
@@ -199,48 +199,98 @@ export const profileServices = {
   },
 
 updateUser: async (payload: any) => {
-  const userId = payload.id;
+  const { id: userId, timeZone, ...restPayload } = payload;
+
+  // Validate timezone if provided
+  if (timeZone && !isValidTimezone(timeZone)) {
+    throw new Error(`Invalid timezone provided: ${timeZone}`);
+  }
 
   // 1️⃣ Define dynamic update objects
   let userUpdateInfo: { [key: string]: any } = {};
   let updatedUserData: { [key: string]: any } = {};
 
-  if (payload.dob) {
-    userUpdateInfo.dob = payload.dob;
-  }
-  if (payload.timeOfBirth) {
-    userUpdateInfo.timeOfBirth = payload.timeOfBirth;
-  }
-  if (payload.birthPlace) {
-    userUpdateInfo.birthPlace = payload.birthPlace;
+  // Handle date of birth conversion to UTC
+  if (restPayload.dob) {
+    if (timeZone && restPayload.timeOfBirth) {
+      try {
+        // Convert DOB + time of birth to UTC
+        userUpdateInfo.dobUTC = convertToUTC(restPayload.dob, restPayload.timeOfBirth, timeZone);
+        userUpdateInfo.dob = new Date(restPayload.dob);
+        userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
+        userUpdateInfo.timeZone = timeZone;
+        
+        // Store timezone offset information at time of birth
+        const timezoneInfo = getTimezoneInfo(timeZone, userUpdateInfo.dobUTC);
+        userUpdateInfo.birthTimezoneOffset = timezoneInfo.offsetMinutes;
+        userUpdateInfo.birthTimezoneOffsetName = timezoneInfo.offsetName;
+        
+      } catch (error) {
+        throw new Error(`Failed to convert birth date to UTC: ${error}`);
+      }
+    } else {
+      // If only dob is provided without timezone/time
+      userUpdateInfo.dob = new Date(restPayload.dob);
+      if (restPayload.timeOfBirth) {
+        userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
+      }
+    }
+  } else if (restPayload.timeOfBirth) {
+    // If only timeOfBirth is provided
+    userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
   }
 
-  if (payload.fullName) {
-    updatedUserData.fullName = payload.fullName;
-  }
-  if (payload.countryCode) {
-    updatedUserData.countryCode = payload.countryCode;
-  }
-  if (payload.phone) {
-    updatedUserData.phone = payload.phone;
-  }
-  if (payload.image) {
-    updatedUserData.image = payload.image;
+  if (restPayload.birthPlace) {
+    userUpdateInfo.birthPlace = restPayload.birthPlace;
   }
 
-  // 2️⃣ Update UserInfo model
-  const additionalInfo = await UserInfoModel.findOneAndUpdate(
-    { userId: userId },
-    { $set: userUpdateInfo },
-    { new: true }
-  ).lean();
+  if (restPayload.gender) {
+    userUpdateInfo.gender = restPayload.gender;
+  }
 
-  // 3️⃣ Update User model
-  const user = await UserModel.findByIdAndUpdate(
-    userId,
-    { $set: updatedUserData },
-    { new: true }
-  ).lean();
+  // Handle user data updates
+  if (restPayload.fullName) {
+    updatedUserData.fullName = restPayload.fullName;
+  }
+  if (restPayload.countryCode) {
+    updatedUserData.countryCode = restPayload.countryCode;
+  }
+  if (restPayload.phone) {
+    updatedUserData.phone = restPayload.phone;
+  }
+  if (restPayload.image) {
+    updatedUserData.image = restPayload.image;
+  }
+
+  // 2️⃣ Update UserInfo model (only if there are fields to update)
+  let additionalInfo = null;
+  if (Object.keys(userUpdateInfo).length > 0) {
+    additionalInfo = await UserInfoModel.findOneAndUpdate(
+      { userId: userId },
+      { $set: userUpdateInfo },
+      { new: true, upsert: true } // Create if doesn't exist
+    ).lean();
+  } else {
+    // If no userInfo updates, just fetch existing data
+    additionalInfo = await UserInfoModel.findOne({ userId: userId }).lean();
+  }
+
+  // 3️⃣ Update User model (only if there are fields to update)
+  let user = null;
+  if (Object.keys(updatedUserData).length > 0) {
+    user = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: updatedUserData },
+      { new: true }
+    ).lean();
+  } else {
+    // If no user updates, just fetch existing data
+    user = await UserModel.findById(userId).lean();
+  }
+
+  if (!user) {
+    throw new Error("User not found");
+  }
 
   // 4️⃣ Get Journal Encryption Data
   const journalEncryptionData = await JournalEncryptionModel.findOne(
@@ -253,49 +303,54 @@ updateUser: async (payload: any) => {
     journalEncryption = journalEncryptionData.journalEncryption;
   }
 
-  // 5️⃣ Always Generate Fresh Astro Data after update
-  const userInfo = await UserInfoModel.findOne({ userId: userId });
-  const userData = await UserModel.findById(userId).select("fullName gender");
-
+  // 5️⃣ Generate Fresh Astro Data after update (only if birth details are available)
   let userAstroData: any = null;
 
-  if (userInfo?.dob && userInfo?.birthPlace) {
-    userAstroData = await getAstroDataFromGPT({
-      fullName: userData?.fullName,
-      dob: userInfo.dob,
-      timeOfBirth: userInfo.timeOfBirth,
-      birthPlace: userInfo.birthPlace,
-      gender: userData?.gender,
-    });
+  if (additionalInfo && additionalInfo.birthPlace && (additionalInfo.dob || additionalInfo.dobUTC)) {
+    try {
+      userAstroData = await getAstroDataFromGPT({
+        fullName: user.fullName,
+        dob: additionalInfo.dob,
+        timeOfBirth: additionalInfo.timeOfBirth,
+        birthPlace: additionalInfo.birthPlace,
+        gender: additionalInfo.gender || user.gender,
+        timezone: additionalInfo.timeZone,
+        utcDate: additionalInfo.dobUTC ? true : false,
+        dobUTC: additionalInfo.dobUTC || undefined,
+      });
 
-    await UserInfoModel.updateOne(
-      { userId: userId },
-      {
-        $set: {
-          zodiacSign: userAstroData.zodiacSign,
-          personalityKeywords: userAstroData.personalityKeywords,
-          birthStar: userAstroData.birthStar,
-          sunSign: userAstroData.sunSign,
-          moonSign: userAstroData.moonSign,
-          risingStar: userAstroData.risingStar
-        },
-      }
-    );
-  } else {
-    throw new Error("User birth details incomplete for generating astrological data.");
+      // Update with astro data
+      await UserInfoModel.updateOne(
+        { userId: userId },
+        {
+          $set: {
+            zodiacSign: userAstroData.zodiacSign,
+            personalityKeywords: userAstroData.personalityKeywords,
+            birthStar: userAstroData.birthStar,
+            sunSign: userAstroData.sunSign,
+            moonSign: userAstroData.moonSign,
+            risingStar: userAstroData.risingStar,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Error generating astro data:", error);
+      // Don't throw error here, just log it and continue
+    }
   }
 
-  const userMoreInfo = await UserInfoModel.findOne(
-    { userId: userId },
-  ).lean();
+  // 6️⃣ Fetch updated user info after astro data update
+  const userMoreInfo = await UserInfoModel.findOne({ userId: userId }).lean();
+
+  // 7️⃣ Get subscription data
   const subscription = await SubscriptionModel.findOne({
-      userId: userId,
-    }).sort({ createdAt: -1 });
+    userId: userId,
+  }).sort({ createdAt: -1 });
 
   return {
     _id: userId,
     user,
-    subscription:subscription || null,
+    subscription: subscription || null,
     additionalInfo: userMoreInfo,
     journalEncryption,
   };

@@ -1,9 +1,13 @@
 import { OtpModel } from "src/models/system/otp-schema";
 import { UserModel } from "src/models/user/user-schema";
 import {
+  convertFromUTC,
+  convertToUTC,
   generateAndSendOtp,
   generateToken,
+  getTimezoneInfo,
   hashPassword,
+  isValidTimezone,
   verifyAppleToken,
   verifyPassword,
 } from "src/utils/helper";
@@ -387,8 +391,9 @@ export const authServices = {
     return {};
   },
 
- async userMoreInfo(payload: any) {
-  const { timeOfBirth, birthPlace, dob, gender, userData } = payload;
+ // Fixed userMoreInfo function
+  async  userMoreInfo(payload: any) {
+  const { timeOfBirth, birthPlace, dob, gender, userData, timeZone } = payload;
 
   const checkUser = await UserModel.findOne({
     _id: userData.id,
@@ -399,34 +404,86 @@ export const authServices = {
     throw new Error("userNotFound");
   }
 
+  // Validate timezone if provided
+  if (timeZone && !isValidTimezone(timeZone)) {
+    throw new Error(`Invalid timezone provided: ${timeZone}`);
+  }
+
   // Dynamically build update object
   const userInfoUpdate: { [key: string]: any } = {};
 
   if (birthPlace) userInfoUpdate.birthPlace = birthPlace;
-  if (timeOfBirth !== undefined) userInfoUpdate.timeOfBirth = timeOfBirth;
-  if (dob) userInfoUpdate.dob = dob; 
   if (gender) userInfoUpdate.gender = gender;
+  
+  // Handle date of birth conversion to UTC
+  if (dob) {
+    if (timeZone && timeOfBirth) {
+      try {
+        // Convert DOB + time of birth to UTC
+        userInfoUpdate.dobUTC = convertToUTC(dob, timeOfBirth, timeZone);
+        userInfoUpdate.dob = new Date(dob); // Store as Date object, not string
+        userInfoUpdate.timeOfBirth = timeOfBirth;
+        userInfoUpdate.timeZone = timeZone; // Fixed: was 'timezone' in update but 'timeZone' in schema
+        
+        // Store timezone offset information at time of birth
+        const timezoneInfo = getTimezoneInfo(timeZone, userInfoUpdate.dobUTC);
+        userInfoUpdate.birthTimezoneOffset = timezoneInfo.offsetMinutes;
+        userInfoUpdate.birthTimezoneOffsetName = timezoneInfo.offsetName;
+        
+      } catch (error) {
+        throw new Error(`Failed to convert birth date to UTC: ${error}`);
+      }
+    } else {
+      // If only dob is provided without timezone/time
+      userInfoUpdate.dob = new Date(dob);
+      if (timeOfBirth) {
+        userInfoUpdate.timeOfBirth = timeOfBirth;
+      }
+    }
+  } else if (timeOfBirth) {
+    // If only timeOfBirth is provided
+    userInfoUpdate.timeOfBirth = timeOfBirth;
+  }
 
-  // Update UserInfo
-  const newData = await UserInfoModel.findOneAndUpdate(
-    { userId: checkUser._id },
-    { $set: userInfoUpdate },
-    { new: true }
-  );
+  // First, try to find existing UserInfo document
+  let newData = await UserInfoModel.findOne({ userId: checkUser._id });
+
+  if (newData) {
+    // Update existing document
+    newData = await UserInfoModel.findOneAndUpdate(
+      { userId: checkUser._id },
+      { $set: userInfoUpdate },
+      { new: true }
+    );
+  } else {
+    // Create new document if it doesn't exist
+    newData = await UserInfoModel.create({
+      userId: checkUser._id,
+      ...userInfoUpdate
+    });
+  }
+
+  if (!newData) {
+    throw new Error("Failed to update user info");
+  }
 
   // Mark user info as complete
   checkUser.isUserInfoComplete = true;
   await checkUser.save();
 
-  // Generate fresh Astro Data after update
-  const userAstroData = await getAstroDataFromGPT({
-    fullName: checkUser.fullName,
-    dob: newData?.dob,
-    timeOfBirth: newData?.timeOfBirth,
-    birthPlace: newData?.birthPlace,
-    gender: newData?.gender,
-  });
+  // For astro data preparation
+ const userAstroData = await getAstroDataFromGPT({
+  fullName: checkUser.fullName,
+  dob: newData.dob,
+  timeOfBirth: newData.timeOfBirth,
+  birthPlace: newData.birthPlace,
+  gender: newData.gender,
+  timezone: newData.timeZone,
+  utcDate: newData.dobUTC ? true : false,
+  dobUTC: newData.dobUTC || undefined,
+});
 
+  // Update with astro data
   await UserInfoModel.updateOne(
     { userId: checkUser._id },
     {
@@ -441,7 +498,10 @@ export const authServices = {
     }
   );
 
-   const data = await UserInfoModel.findOne({ userId: checkUser._id }).lean();
+  // Fetch final data
+  const data = await UserInfoModel.findOne({ userId: checkUser._id }).lean();
+  console.log('data:', data);
+  
   return data;
 },
 

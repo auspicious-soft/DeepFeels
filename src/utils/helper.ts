@@ -135,33 +135,60 @@ export async function verifyAppleToken(idToken: string) {
   return payload;
 }
 
-export async function convertToUTC(dateString:string, timeZone:string) {
-  // Parse date string in the given time zone
-  const zonedDate = DateTime.fromISO(dateString, { zone: timeZone });
-
-  if (!zonedDate.isValid) {
-    throw new Error("Invalid date or time zone");
+export function convertToUTC(dateString: string, timeString: string, timezone: string): Date {
+  try {
+    // Combine date and time strings
+    const dateTimeString = `${dateString}T${timeString}`;
+    
+    // Parse the date/time in the specified timezone
+    const dt = DateTime.fromISO(dateTimeString, { zone: timezone });
+    
+    if (!dt.isValid) {
+      throw new Error(`Invalid date/time: ${dt.invalidExplanation}`);
+    }
+    
+    // Convert to UTC and return as JavaScript Date object
+    return dt.toUTC().toJSDate();
+  } catch (error) {
+    throw new Error(`Invalid date/time or timezone: ${error}`);
   }
-
-  // Convert to UTC and return ISO string
-  return zonedDate.toUTC().toISO();
 }
 
-export async function convertUTCToLocal(utcDateString: string, timeZone: string) {
-  // Parse the UTC date
-  const utcDate = DateTime.fromISO(utcDateString, { zone: 'utc' });
-  
-  if (!utcDate.isValid) {
-    throw new Error("Invalid UTC date");
+// Helper function to convert UTC back to local time for display
+export function convertFromUTC(utcDate: any, timezone: any): { localDate: string, localTime: string } {
+  try {
+    const dt = DateTime.fromJSDate(utcDate, { zone: 'utc' });
+    const localDt = dt.setZone(timezone);
+    
+    if (!localDt.isValid) {
+      throw new Error(`Invalid timezone: ${timezone}`);
+    }
+    
+    return {
+      localDate: localDt.toISODate() || '', // YYYY-MM-DD format
+      localTime: localDt.toFormat('HH:mm')  // HH:MM format
+    };
+  } catch (error) {
+    throw new Error(`Error converting UTC to local time: ${error}`);
   }
-  
-  // Convert to the specified time zone
-  const localDate = utcDate.setZone(timeZone);
-  
-  if (!localDate.isValid) {
-    throw new Error("Invalid time zone");
+}
+
+export function isValidTimezone(timezone: string): boolean {
+  try {
+    const dt = DateTime.now().setZone(timezone);
+    return dt.isValid;
+  } catch {
+    return false;
   }
-  
-  // Return in YYYY-MM-DD format
-  return localDate.toFormat('yyyy-MM-dd');
+}
+export function getTimezoneInfo(timezone: string, date?: Date): { offsetName: string, offsetMinutes: number } {
+  try {
+    const dt = date ? DateTime.fromJSDate(date, { zone: timezone }) : DateTime.now().setZone(timezone);
+    return {
+      offsetName: dt.offsetNameShort || '',
+      offsetMinutes: dt.offset
+    };
+  } catch (error) {
+    throw new Error(`Error getting timezone info: ${error}`);
+  }
 }

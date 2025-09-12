@@ -73,6 +73,7 @@ export const updateUser = async (req: Request, res: Response) => {
       timeOfBirth,
       birthPlace,
       image,
+      timeZone
     } = req.body;
 
     const response = await profileServices.updateUser({
@@ -84,6 +85,7 @@ export const updateUser = async (req: Request, res: Response) => {
       birthPlace,
       image,
       id: userData.id,
+      timeZone,
     });
 
     return OK(res, response || {}, req.body.language);

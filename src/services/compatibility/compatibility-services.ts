@@ -15,7 +15,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
     // Check if astrological data exists in the userInfo (we assume it's stored under custom keys or added)
     if (userInfo["zodiacSign"]) {
       userAstroData = {
-        zodiacMoonSign: userInfo["zodiacSign"],
+        zodiacSign: userInfo["zodiacSign"],
         personalityKeywords: userInfo["personalityKeywords"] || [],
         birthStar: userInfo["birthStar"],
         sunSign: userInfo["sunSign"],
@@ -25,7 +25,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
     } else {
       userAstroData = await getAstroDataFromGPT({
         fullName: userData?.fullName,
-        dob: userInfo.dob,
+        dob: userInfo.dob.toString().split("T")[0], // Extract date part if ISO string
         timeOfBirth: userInfo.timeOfBirth,
         birthPlace: userInfo.birthPlace,
         gender: userInfo.gender,
