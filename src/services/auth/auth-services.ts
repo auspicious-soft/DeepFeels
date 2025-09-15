@@ -21,7 +21,9 @@ import { TokenModel } from "src/models/user/token-schema";
 import { AdminModel } from "src/models/admin/admin-schema";
 import { OAuth2Client } from "google-auth-library";
 import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
-import { getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
+import { getAstroDataFromAPI } from "src/utils/gpt/generateAstroData";
+import { getLatLngFromPlace, getLocationDataFromPlace } from "src/middleware/getLatLngFromPlace";
+import { updateUserWithAstrologyData } from "src/utils/updateUserWthAstroData";
 
 configDotenv();
 
@@ -400,109 +402,93 @@ export const authServices = {
     isVerifiedEmail: true,
   });
 
-  if (!checkUser) {
-    throw new Error("userNotFound");
-  }
+  if (!checkUser) throw new Error("userNotFound");
 
   // Validate timezone if provided
   if (timeZone && !isValidTimezone(timeZone)) {
     throw new Error(`Invalid timezone provided: ${timeZone}`);
   }
 
-  // Dynamically build update object
   const userInfoUpdate: { [key: string]: any } = {};
-
   if (birthPlace) userInfoUpdate.birthPlace = birthPlace;
   if (gender) userInfoUpdate.gender = gender;
-  
-  // Handle date of birth conversion to UTC
+
   if (dob) {
     if (timeZone && timeOfBirth) {
-      try {
-        // Convert DOB + time of birth to UTC
-        userInfoUpdate.dobUTC = convertToUTC(dob, timeOfBirth, timeZone);
-        userInfoUpdate.dob = new Date(dob); // Store as Date object, not string
-        userInfoUpdate.timeOfBirth = timeOfBirth;
-        userInfoUpdate.timeZone = timeZone; // Fixed: was 'timezone' in update but 'timeZone' in schema
-        
-        // Store timezone offset information at time of birth
-        const timezoneInfo = getTimezoneInfo(timeZone, userInfoUpdate.dobUTC);
-        userInfoUpdate.birthTimezoneOffset = timezoneInfo.offsetMinutes;
-        userInfoUpdate.birthTimezoneOffsetName = timezoneInfo.offsetName;
-        
-      } catch (error) {
-        throw new Error(`Failed to convert birth date to UTC: ${error}`);
-      }
+      userInfoUpdate.dobUTC = convertToUTC(dob, timeOfBirth, timeZone);
+      userInfoUpdate.dob = dob;
+      userInfoUpdate.timeOfBirth = timeOfBirth;
+      userInfoUpdate.timeZone = timeZone;
+
+      const timezoneInfo = getTimezoneInfo(timeZone, userInfoUpdate.dobUTC);
+      userInfoUpdate.birthTimezoneOffset = timezoneInfo.offsetMinutes;
+      userInfoUpdate.birthTimezoneOffsetName = timezoneInfo.offsetName;
     } else {
-      // If only dob is provided without timezone/time
-      userInfoUpdate.dob = new Date(dob);
-      if (timeOfBirth) {
-        userInfoUpdate.timeOfBirth = timeOfBirth;
-      }
+      userInfoUpdate.dob = dob;
+      if (timeOfBirth) userInfoUpdate.timeOfBirth = timeOfBirth;
     }
   } else if (timeOfBirth) {
-    // If only timeOfBirth is provided
     userInfoUpdate.timeOfBirth = timeOfBirth;
   }
 
-  // First, try to find existing UserInfo document
+  // Upsert UserInfo
   let newData = await UserInfoModel.findOne({ userId: checkUser._id });
-
   if (newData) {
-    // Update existing document
     newData = await UserInfoModel.findOneAndUpdate(
       { userId: checkUser._id },
       { $set: userInfoUpdate },
       { new: true }
     );
   } else {
-    // Create new document if it doesn't exist
     newData = await UserInfoModel.create({
       userId: checkUser._id,
-      ...userInfoUpdate
+      ...userInfoUpdate,
     });
   }
 
-  if (!newData) {
-    throw new Error("Failed to update user info");
-  }
+  if (!newData) throw new Error("Failed to update user info");
 
-  // Mark user info as complete
   checkUser.isUserInfoComplete = true;
   await checkUser.save();
 
-  // For astro data preparation
- const userAstroData = await getAstroDataFromGPT({
-  fullName: checkUser.fullName,
-  dob: newData.dob,
-  timeOfBirth: newData.timeOfBirth,
-  birthPlace: newData.birthPlace,
-  gender: newData.gender,
-  timezone: newData.timeZone,
-  utcDate: newData.dobUTC ? true : false,
-  dobUTC: newData.dobUTC || undefined,
+  // const { lat, lon } = await getLatLngFromPlace(newData.birthPlace);
+  // Prepare astro data using AstrologyAPI
+  // Extract day/month/year from dob, time from timeOfBirth, lat/lon from birthPlace
+  const [year, month, day] = newData?.dob ? newData?.dob.split("-").map(Number) : [0, 0, 0];
+  const [hour, min] = newData?.timeOfBirth
+    ? newData?.timeOfBirth.split(":").map(Number)
+    : [0, 0];
+  // const lat = birthPlace.lat || 0;
+  // const lon = birthPlace.lng || 0;
+  // const timezoneOffset = newData?.birthTimezoneOffset ? newData.birthTimezoneOffset / 60 : 0;
+  const locationData = await getLocationDataFromPlace(
+  newData.birthPlace, 
+  newData.dob, 
+  newData.timeOfBirth
+);
+const { lat, lon } = locationData;
+const timezoneOffset = locationData.timezoneOffset;
+
+  const astroData = await getAstroDataFromAPI({
+  day,
+  month,
+  year,
+  hour,
+  min,
+  lat,
+  lon,
+  timezone: timezoneOffset,
 });
 
-  // Update with astro data
-  await UserInfoModel.updateOne(
-    { userId: checkUser._id },
-    {
-      $set: {
-        zodiacSign: userAstroData.zodiacSign,
-        personalityKeywords: userAstroData.personalityKeywords,
-        birthStar: userAstroData.birthStar,
-        sunSign: userAstroData.sunSign,
-        moonSign: userAstroData.moonSign,
-        risingStar: userAstroData.risingStar,
-      },
-    }
-  );
+console.log('astroData:', astroData);
 
-  // Fetch final data
-  const data = await UserInfoModel.findOne({ userId: checkUser._id }).lean();
-  console.log('data:', data);
-  
-  return data;
+if (astroData) {
+  await updateUserWithAstrologyData(astroData, checkUser._id);
+}else{
+  throw new Error("Failed to fetch astrology data");
+}
+
+  return await UserInfoModel.findOne({ userId: checkUser._id }).lean();
 },
 
   async getPlans(payload: any) {

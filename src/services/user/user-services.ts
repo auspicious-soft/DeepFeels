@@ -1,6 +1,7 @@
 import { configDotenv } from "dotenv";
 import mongoose from "mongoose";
 import stripe from "src/config/stripe";
+import { getLocationDataFromPlace } from "src/middleware/getLatLngFromPlace";
 import { planModel } from "src/models/admin/plan-schema";
 import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
 import { DailyReflectionModel } from "src/models/user/daily-reflection";
@@ -10,8 +11,9 @@ import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { genders } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
-import { getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
+import { getAstroDataFromAPI, getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
 import { convertToUTC, generateToken, getTimezoneInfo, hashPassword, isValidTimezone, verifyPassword } from "src/utils/helper";
+import { updateUserWithAstrologyData } from "src/utils/updateUserWthAstroData";
 
 configDotenv();
 
@@ -50,41 +52,6 @@ getUserHome: async (payload: any) => {
 
     if (hasRequiredData) {
       try {
-        // --- 1️⃣ Get or generate Astro Data ---
-        let userAstroData: any = null;
-
-        if (userInfo["zodiacSign"]) {
-          userAstroData = {
-            zodiacSign: userInfo["zodiacSign"],
-            personalityKeywords: userInfo["personalityKeywords"] || [],
-            birthStar: userInfo["birthStar"],
-            sunSign: userInfo["sunSign"],
-            moonSign: userInfo["moonSign"],
-            risingStar: userInfo["risingStar"]
-          };
-        } else {
-          userAstroData = await getAstroDataFromGPT({
-            fullName: userData?.fullName,
-            dob: userInfo.dob,
-            timeOfBirth: userInfo.timeOfBirth,
-            birthPlace: userInfo.birthPlace,
-            gender: userInfo.gender,
-          });
-
-          await UserInfoModel.updateOne(
-            { userId },
-            {
-              $set: {
-                zodiacSign: userAstroData.zodiacSign,
-                personalityKeywords: userAstroData.personalityKeywords,
-                birthStar: userAstroData.birthStar,
-                sunSign: userAstroData.sunSign,
-                moonSign: userAstroData.moonSign,
-                risingStar: userAstroData.risingStar
-              },
-            }
-          );
-        }
 
         // --- 2️⃣ Prepare data for Reflection Generation ---
         const generationData: {
@@ -95,17 +62,17 @@ getUserHome: async (payload: any) => {
           zodiacSign?: string;
           sunSign?: string;
           moonSign?: string;
-          birthStar?: string;
+          risingSign?: any;
           personalityKeywords?: string[];
         } = {
           name: userData.fullName,
           dob: userInfo?.dob,
           location: userInfo?.birthPlace,
-          zodiacSign: userAstroData?.zodiacSign,
-          sunSign: userAstroData?.sunSign,
-          moonSign: userAstroData?.moonSign,
-          birthStar: userAstroData?.birthStar,
-          personalityKeywords: userAstroData?.personalityKeywords,
+          zodiacSign: userInfo?.zodiacSign,
+          sunSign: userInfo?.sunSign,
+          moonSign: userInfo?.moonSign,
+          risingSign: userInfo?.risingStar,
+          personalityKeywords: userInfo?.personalityKeywords,
         };
 
         if (userInfo.timeOfBirth) {
@@ -201,42 +168,34 @@ export const profileServices = {
 updateUser: async (payload: any) => {
   const { id: userId, timeZone, ...restPayload } = payload;
 
-  // Validate timezone if provided
   if (timeZone && !isValidTimezone(timeZone)) {
     throw new Error(`Invalid timezone provided: ${timeZone}`);
   }
 
-  // 1️⃣ Define dynamic update objects
   let userUpdateInfo: { [key: string]: any } = {};
   let updatedUserData: { [key: string]: any } = {};
 
-  // Handle date of birth conversion to UTC
   if (restPayload.dob) {
     if (timeZone && restPayload.timeOfBirth) {
       try {
-        // Convert DOB + time of birth to UTC
         userUpdateInfo.dobUTC = convertToUTC(restPayload.dob, restPayload.timeOfBirth, timeZone);
         userUpdateInfo.dob = new Date(restPayload.dob);
         userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
         userUpdateInfo.timeZone = timeZone;
-        
-        // Store timezone offset information at time of birth
+
         const timezoneInfo = getTimezoneInfo(timeZone, userUpdateInfo.dobUTC);
         userUpdateInfo.birthTimezoneOffset = timezoneInfo.offsetMinutes;
         userUpdateInfo.birthTimezoneOffsetName = timezoneInfo.offsetName;
-        
       } catch (error) {
         throw new Error(`Failed to convert birth date to UTC: ${error}`);
       }
     } else {
-      // If only dob is provided without timezone/time
       userUpdateInfo.dob = new Date(restPayload.dob);
       if (restPayload.timeOfBirth) {
         userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
       }
     }
   } else if (restPayload.timeOfBirth) {
-    // If only timeOfBirth is provided
     userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
   }
 
@@ -248,34 +207,22 @@ updateUser: async (payload: any) => {
     userUpdateInfo.gender = restPayload.gender;
   }
 
-  // Handle user data updates
-  if (restPayload.fullName) {
-    updatedUserData.fullName = restPayload.fullName;
-  }
-  if (restPayload.countryCode) {
-    updatedUserData.countryCode = restPayload.countryCode;
-  }
-  if (restPayload.phone) {
-    updatedUserData.phone = restPayload.phone;
-  }
-  if (restPayload.image) {
-    updatedUserData.image = restPayload.image;
-  }
+  if (restPayload.fullName) updatedUserData.fullName = restPayload.fullName;
+  if (restPayload.countryCode) updatedUserData.countryCode = restPayload.countryCode;
+  if (restPayload.phone) updatedUserData.phone = restPayload.phone;
+  if (restPayload.image) updatedUserData.image = restPayload.image;
 
-  // 2️⃣ Update UserInfo model (only if there are fields to update)
   let additionalInfo = null;
   if (Object.keys(userUpdateInfo).length > 0) {
     additionalInfo = await UserInfoModel.findOneAndUpdate(
       { userId: userId },
       { $set: userUpdateInfo },
-      { new: true, upsert: true } // Create if doesn't exist
+      { new: true, upsert: true }
     ).lean();
   } else {
-    // If no userInfo updates, just fetch existing data
     additionalInfo = await UserInfoModel.findOne({ userId: userId }).lean();
   }
 
-  // 3️⃣ Update User model (only if there are fields to update)
   let user = null;
   if (Object.keys(updatedUserData).length > 0) {
     user = await UserModel.findByIdAndUpdate(
@@ -284,68 +231,67 @@ updateUser: async (payload: any) => {
       { new: true }
     ).lean();
   } else {
-    // If no user updates, just fetch existing data
     user = await UserModel.findById(userId).lean();
   }
 
-  if (!user) {
-    throw new Error("User not found");
-  }
+  if (!user) throw new Error("User not found");
 
-  // 4️⃣ Get Journal Encryption Data
   const journalEncryptionData = await JournalEncryptionModel.findOne(
     { userId: userId },
     { journalEncryptionPassword: 0 }
   ).lean();
 
-  let journalEncryption = null;
-  if (journalEncryptionData) {
-    journalEncryption = journalEncryptionData.journalEncryption;
-  }
+  let journalEncryption = journalEncryptionData?.journalEncryption || null;
 
-  // 5️⃣ Generate Fresh Astro Data after update (only if birth details are available)
   let userAstroData: any = null;
 
-  if (additionalInfo && additionalInfo.birthPlace && (additionalInfo.dob || additionalInfo.dobUTC)) {
+  const shouldUpdateAstroData =
+    restPayload.dob ||
+    restPayload.birthPlace ||
+    restPayload.timeOfBirth;
+
+  if (additionalInfo && additionalInfo.birthPlace && (additionalInfo.dob || additionalInfo.dobUTC) && shouldUpdateAstroData) {
     try {
-      userAstroData = await getAstroDataFromGPT({
-        fullName: user.fullName,
-        dob: additionalInfo.dob,
-        timeOfBirth: additionalInfo.timeOfBirth,
-        birthPlace: additionalInfo.birthPlace,
-        gender: additionalInfo.gender ,
-        timezone: additionalInfo.timeZone,
-        utcDate: additionalInfo.dobUTC ? true : false,
-        dobUTC: additionalInfo.dobUTC || undefined,
+      const [year, month, day] = additionalInfo.dob? additionalInfo.dob.split("-").map(Number) : [0, 0, 0];
+
+      const [hour, min] = additionalInfo.timeOfBirth
+        ? additionalInfo.timeOfBirth.split(":").map(Number)
+        : [0, 0];
+
+      const locationData = await getLocationDataFromPlace(
+        additionalInfo.birthPlace,
+        additionalInfo.dob,
+        additionalInfo.timeOfBirth
+      );
+
+      const { lat, lon, timezoneOffset } = locationData;
+
+      const astroData = await getAstroDataFromAPI({
+        day,
+        month,
+        year,
+        hour,
+        min,
+        lat,
+        lon,
+        timezone: timezoneOffset,
       });
 
-      // Update with astro data
-      await UserInfoModel.updateOne(
-        { userId: userId },
-        {
-          $set: {
-            zodiacSign: userAstroData.zodiacSign,
-            personalityKeywords: userAstroData.personalityKeywords,
-            birthStar: userAstroData.birthStar,
-            sunSign: userAstroData.sunSign,
-            moonSign: userAstroData.moonSign,
-            risingStar: userAstroData.risingStar,
-          },
-        }
-      );
+      console.log("astroData:", astroData);
+
+      if (astroData) {
+        await updateUserWithAstrologyData(astroData, userId);
+      } else {
+        throw new Error("Failed to fetch astrology data");
+      }
     } catch (error) {
-      console.error("Error generating astro data:", error);
-      // Don't throw error here, just log it and continue
+      console.error("Error updating astrology data:", error);
     }
   }
 
-  // 6️⃣ Fetch updated user info after astro data update
   const userMoreInfo = await UserInfoModel.findOne({ userId: userId }).lean();
 
-  // 7️⃣ Get subscription data
-  const subscription = await SubscriptionModel.findOne({
-    userId: userId,
-  }).sort({ createdAt: -1 });
+  const subscription = await SubscriptionModel.findOne({ userId: userId }).sort({ createdAt: -1 });
 
   return {
     _id: userId,
@@ -355,7 +301,6 @@ updateUser: async (payload: any) => {
     journalEncryption,
   };
 },
-
 
   changePassword: async (payload: any) => {
     const { id, oldPassword, newPassword } = payload;

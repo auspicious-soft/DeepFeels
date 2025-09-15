@@ -1,5 +1,5 @@
+import axios from "axios";
 import { openai } from "src/config/openAi";
-import { convertFromUTC } from "../helper";
 
 export const getAstroDataFromGPT = async ({
   fullName,
@@ -7,148 +7,158 @@ export const getAstroDataFromGPT = async ({
   timeOfBirth,
   birthPlace,
   gender,
-  timezone,
-  utcDate = false,
-  dobUTC,
 }: {
-  fullName: any;
-  dob: any | Date;
+  fullName: string;
+  dob: any;
   timeOfBirth?: string;
   birthPlace: any;
   gender?: string;
-  timezone?: string;
-  utcDate?: boolean;
-  dobUTC?: any;
 }) => {
-  let formattedDate: string;
-  let formattedTime: string;
-  let timezoneInfo: string = "";
+  const formattedTime = timeOfBirth || "Not provided";
+  
+  const birthPlaceText = typeof birthPlace === 'object' 
+    ? `${birthPlace.city || ''}, ${birthPlace.state || ''}, ${birthPlace.country || ''}`.replace(/^,\s*|,\s*$/g, '')
+    : birthPlace || "Not specified";
 
-  // Handle different date formats and timezone conversions
-  if (utcDate && dobUTC && timezone) {
-    // Convert UTC date back to local time for accurate astrology calculations
-    try {
-      const localDateTime = convertFromUTC(dobUTC, timezone);
-      formattedDate = localDateTime.localDate;
-      formattedTime = localDateTime.localTime;
-      timezoneInfo = `\n- Timezone: ${timezone} (UTC date converted to local time for accuracy)`;
-    } catch (error) {
-      console.error('Error converting UTC to local time:', error);
-      // Fallback to provided date/time
-      formattedDate = dob instanceof Date ? dob.toISOString().split('T')[0] : dob.toString();
-      formattedTime = timeOfBirth || "Not provided";
-    }
-  } else {
-    // Use provided date/time as is
-    formattedDate = dob instanceof Date ? dob.toISOString().split('T')[0] : dob.toString();
-    formattedTime = timeOfBirth || "Not provided";
-    if (timezone) {
-      timezoneInfo = `\n- Timezone: ${timezone}`;
-    }
-  }
+  const prompt = `You are an expert astrologer specializing in Sidereal astrology for Western audiences.
+Based on the birth details provided below, calculate precise astrological data using authentic Sidereal astrology principles, presented in a format familiar to Western users.
 
-  const prompt = `You are an expert Vedic astrologer with deep knowledge of traditional Jyotish principles. Given the following birth details, please provide an accurate astrological analysis:
+CRITICAL INSTRUCTIONS:
+- The date and time provided are LOCAL to the birth location
+- Use Sidereal zodiac system (approximately 24° behind Tropical/Western astrology)
+- Calculate using Lahiri Ayanamsa (standard in Sidereal astrology)
+- Birth locations will primarily be in Western countries (US, Canada, Europe, Australia, etc.)
+- All calculations must be based on the LOCAL date and time at the birth location
+- Present results in English with Western-friendly terminology
 
-Birth Details:
+Birth Information:
 - Full Name: ${fullName}
-- Date of Birth: ${formattedDate}
-- Time of Birth: ${formattedTime}
-- Birth Place: ${birthPlace}
-- Gender: ${gender || "Not specified"}${timezoneInfo}
+- Date of Birth (Local): ${dob}
+- Time of Birth (Local): ${formattedTime}
+- Birth Place: ${birthPlaceText}
+- Gender: ${gender || "Not specified"}
 
-IMPORTANT INSTRUCTIONS:
-1. The date and time provided are in the LOCAL TIME ZONE of the birth place for accurate planetary calculations
-2. Use traditional Vedic astrology (Jyotish) principles, not Western astrology
-3. Calculate the exact planetary positions based on the given coordinates and time
-4. For Nakshatra (birth star), use the traditional 27 Nakshatras system
-5. Ensure zodiacSign matches the Moon sign in Vedic astrology (Rashi)
-6. Provide 3-5 relevant personality keywords based on the planetary combinations
+CALCULATION METHODOLOGY:
+1. Identify exact latitude/longitude coordinates for the birth location (focus on Western countries)
+2. Account for local timezone and daylight saving time if applicable
+3. Calculate planetary positions using Sidereal system with Lahiri Ayanamsa
+4. Determine Moon's position for Moon sign and Nakshatra (birth star)
+5. Calculate Sun's Sidereal position (will be different from Western/Tropical sun sign)
+6. Calculate Ascendant (Rising sign) based on exact local birth time and coordinates
+7. Derive personality traits combining Sidereal and Western astrological insights
 
-Please respond in **strict JSON format** with the following structure:
+NAKSHATRA SYSTEM (27 Birth Stars - use English names):
+Ashwini, Bharani, Krittika, Rohini, Mrigashira, Ardra, Punarvasu, Pushya, Ashlesha, Magha, Purva Phalguni, Uttara Phalguni, Hasta, Chitra, Swati, Vishakha, Anuradha, Jyeshtha, Mula, Purva Ashadha, Uttara Ashadha, Shravana, Dhanishta, Shatabhisha, Purva Bhadrapada, Uttara Bhadrapada, Revati
+
+SIDEREAL ZODIAC SIGNS (use familiar Western names):
+Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces
+
+IMPORTANT NOTES:
+- zodiacSign and moonSign must be identical (both refer to Moon's Sidereal position)
+- sunSign is based on Sidereal Sun position (likely different from person's known Western sun sign)
+- risingStar is the Sidereal Ascendant/Rising sign
+- personalityKeywords should blend Sidereal accuracy with Western psychological insights
+- Explain that Sidereal signs may differ from familiar Western astrology due to precession
+- If time of birth is not provided, note that rising sign calculations are limited
+
+RESPONSE FORMAT:
+Return ONLY a valid JSON object with no additional text, explanations, or markdown formatting.
+
 {
-  "sunSign": "<Vedic Sun sign based on birth date>",
-  "zodiacSign": "<Moon sign - one of: Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces>",
-  "birthStar": "<Nakshatra name (Sanskrit preferred)>",
-  "moonSign": "<Moon sign - should match zodiacSign>",
+  "sunSign": "<Sidereal Sun sign>",
+  "zodiacSign": "<Sidereal Moon sign>",
+  "birthStar": "<Nakshatra name in English>",
+  "moonSign": "<Same as zodiacSign - Sidereal Moon sign>",
   "personalityKeywords": ["<trait1>", "<trait2>", "<trait3>"],
-  "risingStar": "<Ascendant/Lagna sign>"
+  "risingStar": "<Sidereal Ascendant sign>"
 }
 
-Rules:
-- Do not include any explanations or additional text outside the JSON
-- Ensure all values are properly formatted strings or arrays
-- If time is not provided, focus on date-based calculations and mention limitations in calculations
-- Use traditional Sanskrit names for Nakshatras where appropriate
-- Ensure consistency between moonSign and zodiacSign (they should be the same in Vedic astrology)`;
+Note: Sidereal positions may differ from Western/Tropical astrology due to the ~24° precession correction.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      temperature: 0.3, // Reduced for more consistent results
-      max_tokens: 500,   // Added to ensure complete response
+      model: "gpt-4o",
+      temperature: 0.05,
+      max_tokens: 700,
       messages: [
         { 
           role: "system", 
-          content: "You are a professional Vedic astrologer (Jyotishi) with expertise in traditional Indian astrology. Always provide accurate calculations based on Vedic principles and respond only in valid JSON format." 
+          content: "You are a master Sidereal astrologer serving Western audiences. Provide accurate Sidereal astrological analysis using precise calculations while presenting results in familiar Western terminology. Return only valid JSON format based on the given birth details." 
         },
         { role: "user", content: prompt },
       ],
     });
 
     const raw = response.choices[0].message?.content || "{}";
-    
-    // Clean the response to ensure it's valid JSON
-    const cleanedResponse = raw.trim().replace(/```json\n?|\n?```/g, '');
-    
+    const cleaned = raw.trim().replace(/```json\n?|```\n?/g, '').replace(/^```|```$/g, '');
+
     let data;
     try {
-      data = JSON.parse(cleanedResponse);
-      
-      // Validate required fields and provide defaults if missing
-      const validatedData = {
-        sunSign: data.sunSign || "Unknown",
-        zodiacSign: data.zodiacSign || data.moonSign || "Unknown",
-        birthStar: data.birthStar || "Unknown",
-        moonSign: data.moonSign || data.zodiacSign || "Unknown",
-        personalityKeywords: Array.isArray(data.personalityKeywords) 
-          ? data.personalityKeywords.slice(0, 5) // Limit to 5 keywords
-          : [],
-        risingStar: data.risingStar || "Unknown"
-      };
-
-      // Ensure moonSign and zodiacSign consistency (Vedic astrology principle)
-      if (validatedData.moonSign !== validatedData.zodiacSign) {
-        validatedData.zodiacSign = validatedData.moonSign;
-      }
-
-      return validatedData;
-      
+      data = JSON.parse(cleaned);
     } catch (parseError) {
-      console.error('Error parsing GPT response:', parseError);
-      console.error('Raw response:', raw);
-      
-      // Return default values if parsing fails
-      return {
-        sunSign: "Unknown",
-        zodiacSign: "Unknown", 
-        birthStar: "Unknown",
-        moonSign: "Unknown",
-        personalityKeywords: [],
-        risingStar: "Unknown"
-      };
+      console.error('JSON parsing failed, raw response:', raw);
+      throw new Error('Failed to parse astrological data response');
     }
-    
-  } catch (apiError) {
-    console.error('Error calling OpenAI API:', apiError);
-    
-    // Return default values if API call fails
+
+    // Ensure consistent data structure
+    return {
+      sunSign: data.sunSign || "Unknown",
+      zodiacSign: data.zodiacSign || data.moonSign || "Unknown",
+      birthStar: data.birthStar || "Unknown",
+      moonSign: data.moonSign || data.zodiacSign || "Unknown",
+      personalityKeywords: Array.isArray(data.personalityKeywords)
+        ? data.personalityKeywords.slice(0, 3)
+        : ["Unknown", "Unknown", "Unknown"],
+      risingStar: data.risingStar || "Unknown"
+    };
+
+  } catch (error) {
+    console.error('OpenAI API or parsing error:', error);
+
+    // Return fallback data structure
     return {
       sunSign: "Unknown",
       zodiacSign: "Unknown",
-      birthStar: "Unknown", 
+      birthStar: "Unknown",
       moonSign: "Unknown",
-      personalityKeywords: [],
+      personalityKeywords: ["Unknown", "Unknown", "Unknown"],
       risingStar: "Unknown"
     };
+  }
+};
+
+export const getAstroDataFromAPI = async ({
+  day,
+  month,
+  year,
+  hour = 0,
+  min = 0,
+  lat,
+  lon,
+  timezone
+}: {
+  day: number;
+  month: number;
+  year: number;
+  hour?: number;
+  min?: number;
+  lat: number;
+  lon: number;
+  timezone: number;
+}) => {
+  try {
+    // Use both user ID and API key for Basic Auth
+    const auth = Buffer.from(`${process.env.ASTROLOGY_USER_ID}:${process.env.ASTROLOGY_API_KEY}`).toString("base64");
+
+    const response = await axios.post(
+      "https://json.astrologyapi.com/v1/western_horoscope",
+      { day, month, year, hour, min, lat, lon, tzone: timezone },
+      { headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" } }
+    );
+
+    return response.data;
+  } catch (err: any) {
+    console.error("Error fetching astrology data:", err.response?.data || err.message);
+    return null;
   }
 };

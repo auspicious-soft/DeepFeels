@@ -3,7 +3,7 @@ import { openai } from "src/config/openAi";
 interface AstroData {
   zodiacSign: string;
   personalityKeywords: string[];
-  birthStar: string;
+  risingStar: string;
   sunSign: string;
 }
 
@@ -35,7 +35,7 @@ Speak with warmth, softness, and poetic grace, focusing on the beauty of emotion
 Your Astrological Data:
 - Sun Sign: ${you.sunSign}
 - Moon Sign: ${you.zodiacSign}
-- Birth Star: ${you.birthStar}
+- Rising Star (Ascendant): ${you.risingStar}
 - Personality Keywords: ${you.personalityKeywords.join(", ")}
 
 Partner Astrological Data:
@@ -43,7 +43,7 @@ Partner Astrological Data:
 - Gender: ${partnerInfo.gender}
 - Sun Sign: ${partner.sunSign}
 - Moon Sign: ${partner.zodiacSign}
-- Birth Star: ${partner.birthStar}
+- Rising Star (Ascendant): ${partner.risingStar}
 - Personality Keywords: ${partner.personalityKeywords.join(", ")}
 
 Relationship Context: ${relationshipType}
@@ -75,16 +75,16 @@ Respond strictly in the following JSON format with poetic, supportive, and emoti
   },
   "astrologicalSupport": {
     "you": {
-      "zodiacSign": "...",
-      "personalityKeywords": [...],
-      "birthStar": "...",
-      "sunSign": "..."
+      "zodiacSign": "${you.zodiacSign}",
+      "personalityKeywords": ${JSON.stringify(you.personalityKeywords)},
+      "risingStar": "${you.risingStar}",
+      "sunSign": "${you.sunSign}"
     },
     "partner": {
-      "zodiacSign": "...",
-      "personalityKeywords": [...],
-      "birthStar": "...",
-      "sunSign": "..."
+      "zodiacSign": "${partner.zodiacSign}",
+      "personalityKeywords": ${JSON.stringify(partner.personalityKeywords)},
+      "risingStar": "${partner.risingStar}",
+      "sunSign": "${partner.sunSign}"
     }
   },
   "compatibilityScore": number (out of 100),
@@ -108,6 +108,7 @@ You are a wise, empathetic AI astrologer who crafts gentle, poetic, and emotiona
 Avoid technical jargon or overly rigid phrasing. Use soft, uplifting, and graceful language.
 Your goal is to help users feel seen, supported, and encouraged as they explore their relationship from a cosmic perspective.
 Respond only in the requested JSON format.
+Focus on Rising Star as the Ascendant sign, which represents the persona and how one presents to the world.
         `,
       },
       {

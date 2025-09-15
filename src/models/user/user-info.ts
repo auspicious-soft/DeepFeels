@@ -20,6 +20,10 @@ export interface IUserInfo extends Document {
   birthTimezoneOffset?:number;
   dobUTC?:string;
   birthTimezoneOffsetName?:string;
+  aspectsData?:object;
+  housesData?:object;
+  planetsData?:object;
+  ascendantDegree?:number;
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -31,7 +35,7 @@ const userSchema = new Schema<IUserInfo>(
       unique: true,
     },
     dob: {
-      type: Date,
+      type: String,
       default: null,
     },
     timeOfBirth: {
@@ -63,10 +67,6 @@ const userSchema = new Schema<IUserInfo>(
       type: String,
       default: null,
     },
-    birthStar: {
-      type: String,
-      default: null,
-    },
     risingStar:{
       type: String,
       default: null,
@@ -86,6 +86,22 @@ const userSchema = new Schema<IUserInfo>(
     birthTimezoneOffsetName:{
       type:String,
       default:null
+    },
+    ascendantDegree:{
+      type: Number,
+      default: null
+    },
+    planetsData:{
+      type: Object,
+      default: null
+    },
+    housesData:{
+      type: Object,
+      default: null
+    },
+    aspectsData:{
+      type: Object,
+      default: null
     },
     personalityKeywords:[
       {

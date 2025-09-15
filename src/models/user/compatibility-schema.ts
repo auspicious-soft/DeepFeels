@@ -4,7 +4,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 interface IAstroData {
   zodiacSign: string;
   personalityKeywords: string[];
-  birthStar: string;
+  risingStar: string;
   sunSign: string;
 }
 
@@ -16,7 +16,7 @@ interface ICompatibilityResult extends Document {
     gender: string;
     dob: string;
     timeOfBirth: string;
-    birthPlace: string;
+    risingStar: string;
     relationshipType: string,
   };
   relationshipType:string;

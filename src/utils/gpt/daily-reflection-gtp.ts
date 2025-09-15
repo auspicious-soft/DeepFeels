@@ -8,7 +8,7 @@ export const generateReflectionWithGPT = async (data: {
   zodiacSign?: string;
   sunSign?: string;
   moonSign?: string;
-  birthStar?: string;
+  risingSign?: string;
   personalityKeywords?: string[];
 }) => {
   let birthDetails = `- Name: ${data.name}\n- Date of Birth: ${data.dob}\n- Birth Location: ${data.location}`;
@@ -18,7 +18,7 @@ export const generateReflectionWithGPT = async (data: {
   }
 
   if (data.zodiacSign) {
-    birthDetails += `\n- Zodiac Sign: ${data.zodiacSign}`;
+    birthDetails += `\n- Zodiac Sign (Moon Sign): ${data.zodiacSign}`;
   }
   if (data.sunSign) {
     birthDetails += `\n- Sun Sign: ${data.sunSign}`;
@@ -26,41 +26,56 @@ export const generateReflectionWithGPT = async (data: {
   if (data.moonSign) {
     birthDetails += `\n- Moon Sign: ${data.moonSign}`;
   }
-  if (data.birthStar) {
-    birthDetails += `\n- Birth Star (Nakshatra): ${data.birthStar}`;
+  if (data.risingSign) {
+    birthDetails += `\n- Rising Sign (Ascendant): ${data.risingSign}`;
   }
   if (data.personalityKeywords && data.personalityKeywords.length > 0) {
     birthDetails += `\n- Personality Keywords: ${data.personalityKeywords.join(", ")}`;
   }
 
-  const prompt: string = `
-You are a compassionate and insightful astrologer, deeply attuned to the universe's subtle energies. Using the user's complete birth and astrological details below, craft a tender and thoughtful daily astrological reflection, a grounding tip, and a mantra that nurtures their soul, in harmony with the cosmic energies of today.
+  const prompt = `
+You are a compassionate and professional Western astrologer.
 
-User Details:
+Based strictly and explicitly on the user data provided below, generate a structured JSON response containing a poetic and thoughtful daily astrological reflection, grounding tip, uplifting mantra, and other insights for today.
+
+⚡ IMPORTANT: Wherever you mention the user's zodiac sign, sun sign, moon sign, rising sign or personality traits in the reflection, explicitly reference the exact name provided in the input, e.g., "Your Sun Sign is Aries", "The Moon Sign Capricorn brings...". Do NOT infer or calculate any new signs or data – use exactly the values provided.
+
+⚡ Remember: The 'Date of Birth' and 'Time of Birth' (if provided) are in LOCAL TIME of the Birth Location.
+
+User Astrological Data:
 ${birthDetails}
 
-${data.timeOfBirth ? 
-  'With the precise birth time available, weave a reflection that touches on the unique dance of planets and houses influencing their path today.' : 
-  'Without the birth time, gracefully focus on the sun’s current journey, moon phases, and planetary transits to inspire a heartfelt reflection.'}
+${
+  data.timeOfBirth
+    ? 'With the exact birth time available, highlight planetary positions influencing the user today.'
+    : 'Without the birth time, focus on the general sun transit, moon phases, and planetary movements today in a nurturing and general way.'
+
+}
 
 Respond strictly in **JSON format** with these keys:
-- title: A poetic and uplifting title that captures the essence of today’s cosmic message (avoid using the user's name).
-- reflection: A gentle and introspective daily astrological reflection, written as if offering warm guidance and insight.
-- groundingTip: A soothing tip to help the user stay present, calm, and centered today.
-- mantra: A short, powerful, and poetic phrase that harmonizes with today's energy, designed to uplift the spirit.
-- todayEnergy: A 1–2 sentence evocative summary of the day’s prevailing cosmic atmosphere.
-- emotionalTheme: A short phrase or sentence that softly describes the dominant emotional current flowing through the day.
-- suggestedFocus: A short phrase or sentence gently suggesting where the user should channel their energy or attention today.
+- title: A poetic, uplifting title summarizing today’s cosmic insight.
+- reflection: A gentle reflection offering astrological guidance that clearly mentions any of the provided signs or traits by name (e.g., "As your Moon Sign Capricorn suggests...").
+- groundingTip: A calming, practical tip to stay centered today.
+- mantra: A concise, powerful phrase aligned with today’s energy.
+- todayEnergy: A 1–2 sentence summary of the day’s cosmic atmosphere.
+- emotionalTheme: A short phrase describing the dominant emotional theme today.
+- suggestedFocus: A short phrase suggesting where the user should focus energy today.
 `;
 
   const chatCompletion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.4,
+    model: "gpt-4o",
+    temperature: 0.5,
+    max_tokens: 600,
+    messages: [
+      { role: "system", content: "You are a professional Western astrologer providing structured reflections in valid JSON format, strictly based only on provided user data." },
+      { role: "user", content: prompt },
+    ],
   });
 
-  const message = chatCompletion.choices[0].message.content;
+  const message = chatCompletion.choices[0].message?.content;
   if (!message) throw new Error("No content returned from GPT");
 
-  return JSON.parse(message);
+  const cleanedMessage = message.trim().replace(/^```json\s*/, '').replace(/```$/, '').trim();
+
+return JSON.parse(cleanedMessage);
 };
