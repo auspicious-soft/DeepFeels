@@ -57,10 +57,10 @@ Respond strictly in the following JSON format with poetic, supportive, and emoti
     "title": "Emotional & Mental Compatibility",
     "text": "A thoughtful and tender paragraph about their emotional and intellectual harmony"
   },
-  "physicalAndIntimateCompatibility": {
-    "title": "Physical & Intimate Compatibility",
-    "text": "A graceful description of their physical connection, chemistry, and shared moments of intimacy"
-  },
+  "bondAndConnection": {
+  "title": "Bond & Connection",
+  "text": "A thoughtful and gentle paragraph about the unique connection, shared experiences, and harmony between the two souls."
+},
   "spiritualCompatibility": {
     "title": "Spiritual Compatibility",
     "text": "A reflective paragraph on shared spiritual paths, karmic connections, and mutual growth"
