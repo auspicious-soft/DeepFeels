@@ -13,6 +13,7 @@ import { genders } from "src/utils/constant";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
 import { getAstroDataFromAPI, getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
 import { convertToUTC, generateToken, getTimezoneInfo, hashPassword, isValidTimezone, verifyPassword } from "src/utils/helper";
+import { getLocationDataFromPlaceOpenAi } from "src/utils/location";
 import { updateUserWithAstrologyData } from "src/utils/updateUserWthAstroData";
 
 configDotenv();
@@ -258,7 +259,7 @@ updateUser: async (payload: any) => {
         ? additionalInfo.timeOfBirth.split(":").map(Number)
         : [0, 0];
 
-      const locationData = await getLocationDataFromPlace(
+      const locationData = await getLocationDataFromPlaceOpenAi(
         additionalInfo.birthPlace,
         additionalInfo.dob,
         additionalInfo.timeOfBirth

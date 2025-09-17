@@ -8,6 +8,7 @@ import {
   setupIntent,
   userMoreInfo,
 } from "src/controllers/auth/auth-controller";
+import { generateHoroscope } from "src/controllers/horoscope/horoscope-controller";
 import { userHome } from "src/controllers/user/home-controller";
 import {
   changePassword,
@@ -66,6 +67,7 @@ paidRouter.route("/journal/:id").put(updateJournal).get(getJournalById).delete(d
 paidRouter.patch("/update-user", updateUser);
 paidRouter.route("/toggle/journal-encryption").post(toggleJournalEncryption).get(checkJournalEncryptionPassword);
 paidRouter.patch("/change-password", changePassword);
+paidRouter.post("/generate-horoscope", generateHoroscope);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
 paidRouter.route("/chat-gpt").post(streamChatWithGPT).get(getChatHistory);
 paidRouter.route("/compatibility").post(generateCompatibilityController).get(getAllUserCompatibility)

@@ -135,7 +135,7 @@ export const getAstroDataFromAPI = async ({
   min = 0,
   lat,
   lon,
-  timezone
+  timezone,
 }: {
   day: number;
   month: number;

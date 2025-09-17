@@ -22,8 +22,8 @@ import { AdminModel } from "src/models/admin/admin-schema";
 import { OAuth2Client } from "google-auth-library";
 import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
 import { getAstroDataFromAPI } from "src/utils/gpt/generateAstroData";
-import { getLatLngFromPlace, getLocationDataFromPlace } from "src/middleware/getLatLngFromPlace";
 import { updateUserWithAstrologyData } from "src/utils/updateUserWthAstroData";
+import { getLocationDataFromPlaceOpenAi } from "src/utils/location";
 
 configDotenv();
 
@@ -461,7 +461,7 @@ export const authServices = {
   // const lat = birthPlace.lat || 0;
   // const lon = birthPlace.lng || 0;
   // const timezoneOffset = newData?.birthTimezoneOffset ? newData.birthTimezoneOffset / 60 : 0;
-  const locationData = await getLocationDataFromPlace(
+  const locationData = await getLocationDataFromPlaceOpenAi(
   newData.birthPlace, 
   newData.dob, 
   newData.timeOfBirth
