@@ -1,6 +1,7 @@
 import { getLocationDataFromPlace } from "src/middleware/getLatLngFromPlace";
 import { getAstroDataFromAPI } from "./gpt/generateAstroData";
 import { generatePersonalityKeywords } from "./updateUserWthAstroData";
+import { getLocationDataFromPlaceOpenAi } from "./location";
 
 // Helper function to generate astro data from API (matching userMoreInfo logic exactly)
 export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:{dob: any, timeOfBirth: any, birthPlace: any}) => {
@@ -12,7 +13,7 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
       : [0, 0];
 
     // Get location data from place (matches your exact function signature)
-    const locationData = await getLocationDataFromPlace(
+    const locationData = await getLocationDataFromPlaceOpenAi(
       birthPlace, 
       dob, 
       timeOfBirth
