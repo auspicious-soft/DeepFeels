@@ -483,7 +483,7 @@ const timezoneOffset = locationData.timezoneOffset;
 console.log('astroData:', astroData);
 
 if (astroData) {
-  await updateUserWithAstrologyData(astroData, checkUser._id);
+  await updateUserWithAstrologyData(astroData, checkUser._id,timezoneOffset);
 }else{
   throw new Error("Failed to fetch astrology data");
 }

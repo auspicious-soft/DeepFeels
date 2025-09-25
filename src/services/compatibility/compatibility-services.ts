@@ -40,7 +40,7 @@ export const generateCompatibilityResultService = async (userId: string, partner
 
       // Save the generated astro data to UserInfo
       if (userAstroData) {
-        await updateUserWithAstrologyData(userAstroData, userId);
+        await updateUserWithAstrologyData(userAstroData, userId,userAstroData.timezoneOffset);
       } else {
         throw new Error("Failed to generate user's astrological data");
       }

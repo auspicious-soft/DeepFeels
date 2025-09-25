@@ -60,7 +60,8 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
       ascendantDegree: astroData.ascendant,
       planetsData: astroData.planets,
       housesData: astroData.houses,
-      aspectsData: astroData.aspects
+      aspectsData: astroData.aspects,
+      timezoneOffset:timezoneOffset
     };
   } catch (error) {
     console.error('Error in generateAstroDataFromAPI:', error);

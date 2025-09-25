@@ -281,7 +281,7 @@ updateUser: async (payload: any) => {
       console.log("astroData:", astroData);
 
       if (astroData) {
-        await updateUserWithAstrologyData(astroData, userId);
+        await updateUserWithAstrologyData(astroData, userId,timezoneOffset);
       } else {
         throw new Error("Failed to fetch astrology data");
       }

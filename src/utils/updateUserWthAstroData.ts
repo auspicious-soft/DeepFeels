@@ -169,7 +169,7 @@ const getMarsHouseTrait = (house: number): string => {
 };
 
 // Updated function to use with your astrology data
-export const updateUserWithAstrologyData = async (astroData: any, userId: any) => {
+export const updateUserWithAstrologyData = async (astroData: any, userId: any,timezoneOffset:any) => {
   if (astroData) {
     // Extract Sun sign from the Sun planet data
     const sunPlanet = astroData.planets?.find((planet: any) => planet.name === 'Sun');
@@ -197,7 +197,8 @@ export const updateUserWithAstrologyData = async (astroData: any, userId: any) =
           // birthStar: "Unknown", // This API doesn't provide nakshatra data
           risingStar: ascendantSign,
           personalityKeywords: personalityKeywords,
-          // Store additional detailed data
+          // Store additional detailed data          
+          timezoneOffset:timezoneOffset,
           ascendantDegree: astroData.ascendant,
           planetsData: astroData.planets,
           housesData: astroData.houses,

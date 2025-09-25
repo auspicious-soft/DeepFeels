@@ -23,6 +23,7 @@ export interface IUserInfo extends Document {
   aspectsData?:object;
   housesData?:object;
   planetsData?:object;
+  timezoneOffset?:any;
   ascendantDegree?:number;
 }
 
@@ -102,6 +103,10 @@ const userSchema = new Schema<IUserInfo>(
     aspectsData:{
       type: Object,
       default: null
+    },
+    timezoneOffset:{
+      type:Schema.Types.Mixed,
+      default:null
     },
     personalityKeywords:[
       {
