@@ -8,6 +8,7 @@ import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { chatServices } from "src/services/chat-gpt/chat-service";
 import {
+  deleteCompatibilityService,
   generateCompatibilityResultService,
   getAllUserCompatibilityService,
   getCompatibilityByIdService,
@@ -51,7 +52,6 @@ export const getUser = async (req: Request, res: Response) => {
     const response = await profileServices.getUser({
       userData,
     });
-    console.log('response:', response);
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {
     if (err.message) {
@@ -710,7 +710,7 @@ export const getMoodByUserId = async (req: Request, res: Response) => {
 };
 export const streamChatWithGPT = async (req: Request, res: Response) => {
   const user = req.user as any;
-  const { content } = req.body;
+  const { content, chatHistory = [] } = req.body; // Accept chat history from frontend
 
   if (!content) {
     throw new Error("Content is required");
@@ -722,7 +722,7 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    await chatServices.streamMessageToGPT(user.id, content, res);
+    await chatServices.streamMessageToGPT(user.id, content,chatHistory, res);
   } catch (error) {
     console.error("Streaming error:", error);
     if (!res.headersSent) {
@@ -767,12 +767,13 @@ export const generateCompatibilityController = async (
   try {
     const user = req.user as JwtPayload;
     const partner = req.body;
+    const docId = req.query._id as string | undefined;
 
     if (!partner) {
       throw new Error("Partner details are required");
     }
 
-    const result = await generateCompatibilityResultService(user.id, partner);
+    const result = await generateCompatibilityResultService(user.id, partner,docId);
 
     return res.status(200).json({
       success: true,
@@ -805,6 +806,20 @@ export const getCompatibilityById = async (req: any, res: Response) => {
     const userId = req.user?.id || req.user?._id;
     const { id } = req.params;
     const result = await getCompatibilityByIdService(id, userId);
+    res.status(200).json({ success: true, data: result });
+  } catch (error: any) {
+    console.error(error);
+    if (error.message) {
+      return BADREQUEST(res, error.message, "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, "en");
+  }
+};
+export const deletecompatibilityById = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    const { id } = req.params;
+    const result = await deleteCompatibilityService(id, userId);
     res.status(200).json({ success: true, data: result });
   } catch (error: any) {
     console.error(error);

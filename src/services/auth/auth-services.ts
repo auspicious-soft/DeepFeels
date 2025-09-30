@@ -451,16 +451,10 @@ export const authServices = {
   checkUser.isUserInfoComplete = true;
   await checkUser.save();
 
-  // const { lat, lon } = await getLatLngFromPlace(newData.birthPlace);
-  // Prepare astro data using AstrologyAPI
-  // Extract day/month/year from dob, time from timeOfBirth, lat/lon from birthPlace
   const [year, month, day] = newData?.dob ? newData?.dob.split("-").map(Number) : [0, 0, 0];
   const [hour, min] = newData?.timeOfBirth
     ? newData?.timeOfBirth.split(":").map(Number)
     : [0, 0];
-  // const lat = birthPlace.lat || 0;
-  // const lon = birthPlace.lng || 0;
-  // const timezoneOffset = newData?.birthTimezoneOffset ? newData.birthTimezoneOffset / 60 : 0;
   const locationData = await getLocationDataFromPlaceOpenAi(
   newData.birthPlace, 
   newData.dob, 
@@ -480,10 +474,19 @@ const timezoneOffset = locationData.timezoneOffset;
   timezone: timezoneOffset,
 });
 
-console.log('astroData:', astroData);
+const dataToSave = {
+    day,
+  month,
+  year,
+  hour,
+  min,
+  lat,
+  lon,
+   timezone: timezoneOffset,
+}
 
 if (astroData) {
-  await updateUserWithAstrologyData(astroData, checkUser._id,timezoneOffset);
+  await updateUserWithAstrologyData(astroData, checkUser._id,timezoneOffset,dataToSave);
 }else{
   throw new Error("Failed to fetch astrology data");
 }
@@ -708,8 +711,6 @@ if (astroData) {
         userId: user._id,
       }).lean();
     }
-    console.log('additionalInfo:', additionalInfo);
-
     const journalEncryptionData = await JournalEncryptionModel.findOne(
       { userId: user._id },
       { journalEncryptionPassword: 0 }

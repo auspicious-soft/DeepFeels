@@ -11,6 +11,10 @@ export interface IDailyReflection extends Document {
   emotionalTheme:string;
   suggestedFocus:string;
   userDescription:string|null;
+  result:any;
+  natalData:any;
+  transitReflections:any;
+  majorTransits:any;
 }
 
 const dailyReflectionSchema = new Schema<IDailyReflection>(
@@ -18,13 +22,23 @@ const dailyReflectionSchema = new Schema<IDailyReflection>(
     userId: { type: Schema.Types.ObjectId, ref: "user", required: true },
     title: { type: String, required: true },
     date: { type: Date, required: true },
-    reflection: { type: String, required: true },
     groundingTip: { type: String, required: true },
     mantra: { type: String, required: true },
     todayEnergy:{type: String, required: true},
     emotionalTheme:{type: String, required: true},
     suggestedFocus:{type: String, required: true},
-    userDescription:{type:String,default:null}
+    transitReflections:{
+      type : Schema.Types.Mixed,
+      default:null
+    },
+    majorTransits:{
+      type : Schema.Types.Mixed,
+      default:null
+    },
+    result:{
+      type:Schema.Types.Mixed,
+      required:true
+    },
   },
   { timestamps: true }
 );

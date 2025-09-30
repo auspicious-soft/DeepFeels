@@ -25,6 +25,10 @@ export interface IUserInfo extends Document {
   planetsData?:object;
   timezoneOffset?:any;
   ascendantDegree?:number;
+  dataToSave?:object;
+  lilith?:object;
+  vertex?:number;
+  midheaven?:number;
 }
 
 const userSchema = new Schema<IUserInfo>(
@@ -96,6 +100,10 @@ const userSchema = new Schema<IUserInfo>(
       type: Object,
       default: null
     },
+    lilith:{
+      type:Object,
+      default:null
+    },
     housesData:{
       type: Object,
       default: null
@@ -106,6 +114,18 @@ const userSchema = new Schema<IUserInfo>(
     },
     timezoneOffset:{
       type:Schema.Types.Mixed,
+      default:null
+    },
+    midheaven:{
+      type:Number,
+      default:null
+    },
+    vertex:{
+      type:Number,
+      default:null
+    },
+    dataToSave:{
+      type:Object,
       default:null
     },
     personalityKeywords:[

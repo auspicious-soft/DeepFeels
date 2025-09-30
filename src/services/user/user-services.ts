@@ -10,118 +10,155 @@ import { SubscriptionModel } from "src/models/user/subscription-schema";
 import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { genders } from "src/utils/constant";
+import { getAndSaveTransitReflections } from "src/utils/GetDailyReflectionFromTransit";
+import { getDailyMajorTransits } from "src/utils/GetMajorAspects";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
-import { getAstroDataFromAPI, getAstroDataFromGPT } from "src/utils/gpt/generateAstroData";
-import { convertToUTC, generateToken, getTimezoneInfo, hashPassword, isValidTimezone, verifyPassword } from "src/utils/helper";
+import {
+  getAstroDataFromAPI,
+  getMoonPhaseReport,
+  getNatalTransitDaily,
+} from "src/utils/gpt/generateAstroData";
+import {
+  convertToUTC,
+  getTimezoneInfo,
+  hashPassword,
+  isValidTimezone,
+  verifyPassword,
+} from "src/utils/helper";
 import { getLocationDataFromPlaceOpenAi } from "src/utils/location";
 import { updateUserWithAstrologyData } from "src/utils/updateUserWthAstroData";
 
 configDotenv();
 
+interface IUserAstroData {
+  day: number;
+  month: number;
+  year: number;
+  hour: number;
+  min: number;
+  lat: number;
+  lon: number;
+  timezone: number;
+}
+
 export const homeServices = {
-getUserHome: async (payload: any) => {
-  const user = payload.userData;
-  const userId = user.id;
+  getUserHome: async (payload: any) => {
+    const user = payload.userData;
+    const userId = user.id;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+    let dailyReflection = await DailyReflectionModel.findOne({
+      userId: userId,
+      date: today,
+    }).lean();
 
-  // 1. Get or generate daily reflection
-  let dailyReflection = await DailyReflectionModel.findOne({
-    userId: userId,
-    date: today,
-  }).lean();
+    if (!dailyReflection) {
+      const userData = await UserModel.findById(userId).lean();
+      const userInfo = await UserInfoModel.findOne({ userId }).lean();
 
-  console.log('Existing daily reflection:', dailyReflection);
+      const hasRequiredData =
+        userData?.fullName && userInfo?.dob && userInfo?.birthPlace;
 
-  if (!dailyReflection) {
-    const userData = await UserModel.findById(userId).lean();
-    const userInfo = await UserInfoModel.findOne({ userId }).lean();
+      if (hasRequiredData) {
+        try {
+          const generationData: {
+            name: string;
+            dob: any;
+            timeOfBirth?: string;
+            location: any;
+            zodiacSign?: string;
+            sunSign?: string;
+            moonSign?: string;
+            risingSign?: any;
+            personalityKeywords?: string[];
+          } = {
+            name: userData.fullName,
+            dob: userInfo?.dob,
+            location: userInfo?.birthPlace,
+            zodiacSign: userInfo?.zodiacSign,
+            sunSign: userInfo?.sunSign,
+            moonSign: userInfo?.moonSign,
+            risingSign: userInfo?.risingStar,
+            personalityKeywords: userInfo?.personalityKeywords,
+          };
 
-    console.log('User data:', {
-      fullName: userData?.fullName,
-      dob: userInfo?.dob,
-      timeOfBirth: userInfo?.timeOfBirth,
-      birthPlace: userInfo?.birthPlace,
+          if (userInfo.timeOfBirth) {
+            generationData.timeOfBirth = userInfo.timeOfBirth;
+          }
+          const data = userInfo?.dataToSave as IUserAstroData;
+
+          // ⚡ STEP 1: Get Moon Phase Data
+          const MoonData = await getMoonPhaseReport({
+            day: data.day,
+            month: data.month,
+            year: data.year,
+            hour: data.hour,
+            min: data.min,
+            lat: data.lat,
+            lon: data.lon,
+            timezone: data.timezone,
+          });
+
+          // ⚡ STEP 2: Generate Transit Reflections with GPT (3 major aspects)
+          const { transitReflections, majorTransits } =
+            await getAndSaveTransitReflections(userInfo);
+
+          // ⚡ STEP 3: Generate Main Daily Reflection using transit data as context
+          const generated = await generateReflectionWithGPT(
+            generationData,
+            transitReflections, // Pass transit reflections as context
+            MoonData // Pass moon phase data as context
+          );
+
+          // ⚡ STEP 4: Save everything to database
+          const saved = await DailyReflectionModel.create({
+            userId: userId,
+            date: today,
+            ...generated, // Main reflection data
+            result: MoonData, // Moon phase data
+            transitReflections: transitReflections, // Individual transit reflections
+            majorTransits: majorTransits, // Raw transit data (optional)
+          });
+
+          (dailyReflection as any) = saved.toObject();
+        } catch (error) {
+          console.error("Error generating or saving reflection:", error);
+        }
+      } else {
+        throw new Error("Missing required user data for generating reflection");
+        console.log("Missing required user data for generating reflection");
+      }
+    }
+
+    // Get today's mood
+    const startOfDay = new Date(today);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const moodDoc = await moodModel
+      .findOne({
+        userId: userId,
+        date: { $gte: startOfDay, $lte: endOfDay },
+      })
+      .lean();
+
+    const subscription = await SubscriptionModel.findOne({
+      userId: userId,
     });
 
-    const hasRequiredData = userData?.fullName &&
-                            userInfo?.dob &&
-                            userInfo?.birthPlace;
-
-    console.log('Has all required data:', hasRequiredData);
-
-    if (hasRequiredData) {
-      try {
-
-        // --- 2️⃣ Prepare data for Reflection Generation ---
-        const generationData: {
-          name: string;
-          dob: any;
-          timeOfBirth?: string;
-          location: any;
-          zodiacSign?: string;
-          sunSign?: string;
-          moonSign?: string;
-          risingSign?: any;
-          personalityKeywords?: string[];
-        } = {
-          name: userData.fullName,
-          dob: userInfo?.dob,
-          location: userInfo?.birthPlace,
-          zodiacSign: userInfo?.zodiacSign,
-          sunSign: userInfo?.sunSign,
-          moonSign: userInfo?.moonSign,
-          risingSign: userInfo?.risingStar,
-          personalityKeywords: userInfo?.personalityKeywords,
-        };
-
-        if (userInfo.timeOfBirth) {
-          generationData.timeOfBirth = userInfo.timeOfBirth;
-        }
-
-        const generated = await generateReflectionWithGPT(generationData);
-
-        console.log('Generated reflection:', generated);
-
-        const saved = await DailyReflectionModel.create({
-          userId: userId,
-          date: today,
-          ...generated,
-        });
-
-        (dailyReflection as any) = saved.toObject();
-        console.log('Saved daily reflection:', dailyReflection);
-      } catch (error) {
-        console.error('Error generating or saving reflection:', error);
-      }
-    } else {
-      console.log('Missing required user data for generating reflection');
-    }
-  }
-
-  // 3. Get today's mood (if available)
-  const startOfDay = new Date(today);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const moodDoc = await moodModel.findOne({
-    userId: userId,
-    date: { $gte: startOfDay, $lte: endOfDay },
-  }).lean();
-
-  const subscription = await SubscriptionModel.findOne({
-    userId: userId,
-  });
-
-  return {
-    plan: subscription || null,
-    dailyReflection: dailyReflection || null,
-    mood: moodDoc ? { mood: moodDoc.mood, note: moodDoc.note || "" } : null,
-    moodNotSet: !moodDoc,
-  };
-},
-
+    return {
+      plan: subscription || null,
+      dailyReflection: dailyReflection || null,
+      mood: moodDoc
+        ? {
+            mood: moodDoc.mood,
+            note: moodDoc.note || "",
+          }
+        : null,
+      moodNotSet: !moodDoc,
+    };
+  },
 };
 
 export const profileServices = {
@@ -143,165 +180,192 @@ export const profileServices = {
     }).lean();
 
     const { dob } = additionalInfo || {};
-         const journalEncryptionData = await JournalEncryptionModel.findOne(
-    { userId: payload.userData.id },
-    { journalEncryptionPassword: 0 } // exclude password
-  ).lean();
-  
-  let journalEncryption = null;
-  if (journalEncryptionData) {
-    journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
-  }
+    const journalEncryptionData = await JournalEncryptionModel.findOne(
+      { userId: payload.userData.id },
+      { journalEncryptionPassword: 0 } // exclude password
+    ).lean();
 
-  const subscription = await SubscriptionModel.findOne({
+    let journalEncryption = null;
+    if (journalEncryptionData) {
+      journalEncryption = journalEncryptionData.journalEncryption; // true/false from DB
+    }
+
+    const subscription = await SubscriptionModel.findOne({
       userId: payload.userData.id,
-    }).lean().sort({createdAt:-1});
+    })
+      .lean()
+      .sort({ createdAt: -1 });
 
     return {
       _id: payload.userData.id,
-     user,
-     subscription:subscription || null,
+      user,
+      subscription: subscription || null,
       additionalInfo,
-      journalEncryption
+      journalEncryption,
     };
   },
 
-updateUser: async (payload: any) => {
-  const { id: userId, timeZone, ...restPayload } = payload;
+  updateUser: async (payload: any) => {
+    const { id: userId, timeZone, ...restPayload } = payload;
 
-  if (timeZone && !isValidTimezone(timeZone)) {
-    throw new Error(`Invalid timezone provided: ${timeZone}`);
-  }
-
-  let userUpdateInfo: { [key: string]: any } = {};
-  let updatedUserData: { [key: string]: any } = {};
-
-  if (restPayload.dob) {
-    if (timeZone && restPayload.timeOfBirth) {
-      try {
-        userUpdateInfo.dobUTC = convertToUTC(restPayload.dob, restPayload.timeOfBirth, timeZone);
-        userUpdateInfo.dob = new Date(restPayload.dob);
-        userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
-        userUpdateInfo.timeZone = timeZone;
-
-        const timezoneInfo = getTimezoneInfo(timeZone, userUpdateInfo.dobUTC);
-        userUpdateInfo.birthTimezoneOffset = timezoneInfo.offsetMinutes;
-        userUpdateInfo.birthTimezoneOffsetName = timezoneInfo.offsetName;
-      } catch (error) {
-        throw new Error(`Failed to convert birth date to UTC: ${error}`);
-      }
-    } else {
-      userUpdateInfo.dob = new Date(restPayload.dob);
-      if (restPayload.timeOfBirth) {
-        userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
-      }
+    if (timeZone && !isValidTimezone(timeZone)) {
+      throw new Error(`Invalid timezone provided: ${timeZone}`);
     }
-  } else if (restPayload.timeOfBirth) {
-    userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
-  }
 
-  if (restPayload.birthPlace) {
-    userUpdateInfo.birthPlace = restPayload.birthPlace;
-  }
+    let userUpdateInfo: { [key: string]: any } = {};
+    let updatedUserData: { [key: string]: any } = {};
 
-  if (restPayload.gender) {
-    userUpdateInfo.gender = restPayload.gender;
-  }
+    if (restPayload.dob) {
+      if (timeZone && restPayload.timeOfBirth) {
+        try {
+          userUpdateInfo.dobUTC = convertToUTC(
+            restPayload.dob,
+            restPayload.timeOfBirth,
+            timeZone
+          );
+          userUpdateInfo.dob = new Date(restPayload.dob);
+          userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
+          userUpdateInfo.timeZone = timeZone;
 
-  if (restPayload.fullName) updatedUserData.fullName = restPayload.fullName;
-  if (restPayload.countryCode) updatedUserData.countryCode = restPayload.countryCode;
-  if (restPayload.phone) updatedUserData.phone = restPayload.phone;
-  if (restPayload.image) updatedUserData.image = restPayload.image;
-
-  let additionalInfo = null;
-  if (Object.keys(userUpdateInfo).length > 0) {
-    additionalInfo = await UserInfoModel.findOneAndUpdate(
-      { userId: userId },
-      { $set: userUpdateInfo },
-      { new: true, upsert: true }
-    ).lean();
-  } else {
-    additionalInfo = await UserInfoModel.findOne({ userId: userId }).lean();
-  }
-
-  let user = null;
-  if (Object.keys(updatedUserData).length > 0) {
-    user = await UserModel.findByIdAndUpdate(
-      userId,
-      { $set: updatedUserData },
-      { new: true }
-    ).lean();
-  } else {
-    user = await UserModel.findById(userId).lean();
-  }
-
-  if (!user) throw new Error("User not found");
-
-  const journalEncryptionData = await JournalEncryptionModel.findOne(
-    { userId: userId },
-    { journalEncryptionPassword: 0 }
-  ).lean();
-
-  let journalEncryption = journalEncryptionData?.journalEncryption || null;
-
-  let userAstroData: any = null;
-
-  const shouldUpdateAstroData =
-    restPayload.dob ||
-    restPayload.birthPlace ||
-    restPayload.timeOfBirth;
-
-  if (additionalInfo && additionalInfo.birthPlace && (additionalInfo.dob || additionalInfo.dobUTC) && shouldUpdateAstroData) {
-    try {
-      const [year, month, day] = additionalInfo.dob? additionalInfo.dob.split("-").map(Number) : [0, 0, 0];
-
-      const [hour, min] = additionalInfo.timeOfBirth
-        ? additionalInfo.timeOfBirth.split(":").map(Number)
-        : [0, 0];
-
-      const locationData = await getLocationDataFromPlaceOpenAi(
-        additionalInfo.birthPlace,
-        additionalInfo.dob,
-        additionalInfo.timeOfBirth
-      );
-
-      const { lat, lon, timezoneOffset } = locationData;
-
-      const astroData = await getAstroDataFromAPI({
-        day,
-        month,
-        year,
-        hour,
-        min,
-        lat,
-        lon,
-        timezone: timezoneOffset,
-      });
-
-      console.log("astroData:", astroData);
-
-      if (astroData) {
-        await updateUserWithAstrologyData(astroData, userId,timezoneOffset);
+          const timezoneInfo = getTimezoneInfo(timeZone, userUpdateInfo.dobUTC);
+          userUpdateInfo.birthTimezoneOffset = timezoneInfo.offsetMinutes;
+          userUpdateInfo.birthTimezoneOffsetName = timezoneInfo.offsetName;
+        } catch (error) {
+          throw new Error(`Failed to convert birth date to UTC: ${error}`);
+        }
       } else {
-        throw new Error("Failed to fetch astrology data");
+        userUpdateInfo.dob = new Date(restPayload.dob);
+        if (restPayload.timeOfBirth) {
+          userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
+        }
       }
-    } catch (error) {
-      console.error("Error updating astrology data:", error);
+    } else if (restPayload.timeOfBirth) {
+      userUpdateInfo.timeOfBirth = restPayload.timeOfBirth;
     }
-  }
 
-  const userMoreInfo = await UserInfoModel.findOne({ userId: userId }).lean();
+    if (restPayload.birthPlace) {
+      userUpdateInfo.birthPlace = restPayload.birthPlace;
+    }
 
-  const subscription = await SubscriptionModel.findOne({ userId: userId }).sort({ createdAt: -1 });
+    if (restPayload.gender) {
+      userUpdateInfo.gender = restPayload.gender;
+    }
 
-  return {
-    _id: userId,
-    user,
-    subscription: subscription || null,
-    additionalInfo: userMoreInfo,
-    journalEncryption,
-  };
-},
+    if (restPayload.fullName) updatedUserData.fullName = restPayload.fullName;
+    if (restPayload.countryCode)
+      updatedUserData.countryCode = restPayload.countryCode;
+    if (restPayload.phone) updatedUserData.phone = restPayload.phone;
+    if (restPayload.image) updatedUserData.image = restPayload.image;
+
+    let additionalInfo = null;
+    if (Object.keys(userUpdateInfo).length > 0) {
+      additionalInfo = await UserInfoModel.findOneAndUpdate(
+        { userId: userId },
+        { $set: userUpdateInfo },
+        { new: true, upsert: true }
+      ).lean();
+    } else {
+      additionalInfo = await UserInfoModel.findOne({ userId: userId }).lean();
+    }
+
+    let user = null;
+    if (Object.keys(updatedUserData).length > 0) {
+      user = await UserModel.findByIdAndUpdate(
+        userId,
+        { $set: updatedUserData },
+        { new: true }
+      ).lean();
+    } else {
+      user = await UserModel.findById(userId).lean();
+    }
+
+    if (!user) throw new Error("User not found");
+
+    const journalEncryptionData = await JournalEncryptionModel.findOne(
+      { userId: userId },
+      { journalEncryptionPassword: 0 }
+    ).lean();
+
+    let journalEncryption = journalEncryptionData?.journalEncryption || null;
+
+    let userAstroData: any = null;
+
+    const shouldUpdateAstroData =
+      restPayload.dob || restPayload.birthPlace || restPayload.timeOfBirth;
+
+    if (
+      additionalInfo &&
+      additionalInfo.birthPlace &&
+      (additionalInfo.dob || additionalInfo.dobUTC) &&
+      shouldUpdateAstroData
+    ) {
+      try {
+        const [year, month, day] = additionalInfo.dob
+          ? additionalInfo.dob.split("-").map(Number)
+          : [0, 0, 0];
+
+        const [hour, min] = additionalInfo.timeOfBirth
+          ? additionalInfo.timeOfBirth.split(":").map(Number)
+          : [0, 0];
+
+        const locationData = await getLocationDataFromPlaceOpenAi(
+          additionalInfo.birthPlace,
+          additionalInfo.dob,
+          additionalInfo.timeOfBirth
+        );
+
+        const { lat, lon, timezoneOffset } = locationData;
+
+        const astroData = await getAstroDataFromAPI({
+          day,
+          month,
+          year,
+          hour,
+          min,
+          lat,
+          lon,
+          timezone: timezoneOffset,
+        });
+        const dataToSave = {
+          day,
+          month,
+          year,
+          hour,
+          min,
+          lat,
+          lon,
+          timezone: timezoneOffset,
+        };
+
+        if (astroData) {
+          await updateUserWithAstrologyData(
+            astroData,
+            userId,
+            timezoneOffset,
+            dataToSave
+          );
+        } else {
+          throw new Error("Failed to fetch astrology data");
+        }
+      } catch (error) {
+        console.error("Error updating astrology data:", error);
+      }
+    }
+
+    const userMoreInfo = await UserInfoModel.findOne({ userId: userId }).lean();
+
+    const subscription = await SubscriptionModel.findOne({
+      userId: userId,
+    }).sort({ createdAt: -1 });
+
+    return {
+      _id: userId,
+      user,
+      subscription: subscription || null,
+      additionalInfo: userMoreInfo,
+      journalEncryption,
+    };
+  },
 
   changePassword: async (payload: any) => {
     const { id, oldPassword, newPassword } = payload;
@@ -333,126 +397,127 @@ updateUser: async (payload: any) => {
   },
 
   updatePlan: async (payload: any) => {
-     const session = await mongoose.startSession();
-  session.startTransaction();
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  try {
-    const toDate = (timestamp?: number | null): Date | null =>
-      typeof timestamp === "number" && !isNaN(timestamp)
-        ? new Date(timestamp * 1000)
-        : null;
+    try {
+      const toDate = (timestamp?: number | null): Date | null =>
+        typeof timestamp === "number" && !isNaN(timestamp)
+          ? new Date(timestamp * 1000)
+          : null;
 
-    const { type, planId, userData } = payload;
-    const { stripeCustomerId, currency, paymentMethodId, status } =
-      userData.subscription;
+      const { type, planId, userData } = payload;
+      const { stripeCustomerId, currency, paymentMethodId, status } =
+        userData.subscription;
 
-    /** Cancel Trial (only if trialing) */
-    if (type === "cancelTrial" && status !== "trialing") {
-      throw new Error("Your subscription is not trialing");
-    }
+      /** Cancel Trial (only if trialing) */
+      if (type === "cancelTrial" && status !== "trialing") {
+        throw new Error("Your subscription is not trialing");
+      }
 
-    /** Cancel full subscription */
-    if (type === "cancelSubscription") {
-      await stripe.subscriptions.update(
-        userData.subscription.stripeSubscriptionId,
-        { cancel_at_period_end: true }
-      );
+      /** Cancel full subscription */
+      if (type === "cancelSubscription") {
+        await stripe.subscriptions.update(
+          userData.subscription.stripeSubscriptionId,
+          { cancel_at_period_end: true }
+        );
 
-      await SubscriptionModel.findOneAndUpdate(
-        {
-          userId: userData.id,
-          $or: [{ status: "active" }, { status: "trialing" }],
-        },
-        { $set: { status: "canceling" } },
-        { session }
-      );
-    }
-
-    /** Cancel Trial Immediately (no new plan) */
-    if (type === "cancelTrial" && !planId) {
-      await stripe.subscriptions.cancel(
-  userData.subscription.stripeSubscriptionId,
-  {
-    invoice_now: false,
-    prorate: false,
-  }
-);
-    }
-
-    /** Cancel Trial + Start New Plan */
-    if (type === "cancelTrial" && planId) {
-      // cancel existing subscription
-      await stripe.subscriptions.cancel(
-        userData.subscription.stripeSubscriptionId
-      );
-
-      await SubscriptionModel.findByIdAndDelete(userData.subscription._id, {
-        session,
-      });
-
-      const planData = await planModel.findById(planId).session(session);
-      if (!planData) throw new Error("Plan not found");
-
-      const newSub = await stripe.subscriptions.create({
-        customer: typeof stripeCustomerId === "string"
-          ? stripeCustomerId
-          : stripeCustomerId?.id ?? "",
-        items: [{ price: planData.stripePrices }],
-        default_payment_method: paymentMethodId,
-        expand: ["latest_invoice.payment_intent"],
-      });
-
-      const newSubPrice = newSub.items.data[0]?.price;
-      if (!newSubPrice) throw new Error("New subscription price not found");
-
-      // ✅ Schema-aligned subscription creation
-      await SubscriptionModel.create(
-        [
+        await SubscriptionModel.findOneAndUpdate(
           {
             userId: userData.id,
-            stripeCustomerId,
-            stripeSubscriptionId: newSub.id,
-            planId,
-            paymentMethodId,
-            status: newSub.status,
-            trialStart: toDate(newSub.trial_start),
-            trialEnd: toDate(newSub.trial_end),
-            startDate: toDate(newSub.start_date) ?? new Date(),
-            currentPeriodStart: toDate(newSub.current_period_start),
-            currentPeriodEnd: toDate(newSub.current_period_end),
-            nextBillingDate: toDate(newSub.current_period_end),
-            amount: newSubPrice.unit_amount
-              ? newSubPrice.unit_amount / 100
-              : 0,
-            currency: newSubPrice.currency ?? currency,
-            nextPlanId: null,
+            $or: [{ status: "active" }, { status: "trialing" }],
           },
-        ],
-        { session }
-      );
+          { $set: { status: "canceling" } },
+          { session }
+        );
+      }
+
+      /** Cancel Trial Immediately (no new plan) */
+      if (type === "cancelTrial" && !planId) {
+        await stripe.subscriptions.cancel(
+          userData.subscription.stripeSubscriptionId,
+          {
+            invoice_now: false,
+            prorate: false,
+          }
+        );
+      }
+
+      /** Cancel Trial + Start New Plan */
+      if (type === "cancelTrial" && planId) {
+        // cancel existing subscription
+        await stripe.subscriptions.cancel(
+          userData.subscription.stripeSubscriptionId
+        );
+
+        await SubscriptionModel.findByIdAndDelete(userData.subscription._id, {
+          session,
+        });
+
+        const planData = await planModel.findById(planId).session(session);
+        if (!planData) throw new Error("Plan not found");
+
+        const newSub = await stripe.subscriptions.create({
+          customer:
+            typeof stripeCustomerId === "string"
+              ? stripeCustomerId
+              : stripeCustomerId?.id ?? "",
+          items: [{ price: planData.stripePrices }],
+          default_payment_method: paymentMethodId,
+          expand: ["latest_invoice.payment_intent"],
+        });
+
+        const newSubPrice = newSub.items.data[0]?.price;
+        if (!newSubPrice) throw new Error("New subscription price not found");
+
+        // ✅ Schema-aligned subscription creation
+        await SubscriptionModel.create(
+          [
+            {
+              userId: userData.id,
+              stripeCustomerId,
+              stripeSubscriptionId: newSub.id,
+              planId,
+              paymentMethodId,
+              status: newSub.status,
+              trialStart: toDate(newSub.trial_start),
+              trialEnd: toDate(newSub.trial_end),
+              startDate: toDate(newSub.start_date) ?? new Date(),
+              currentPeriodStart: toDate(newSub.current_period_start),
+              currentPeriodEnd: toDate(newSub.current_period_end),
+              nextBillingDate: toDate(newSub.current_period_end),
+              amount: newSubPrice.unit_amount
+                ? newSubPrice.unit_amount / 100
+                : 0,
+              currency: newSubPrice.currency ?? currency,
+              nextPlanId: null,
+            },
+          ],
+          { session }
+        );
+      }
+
+      /** Upgrade (schedule new plan after current ends) */
+      if (type === "upgrade") {
+        await stripe.subscriptions.update(
+          userData.subscription.stripeSubscriptionId,
+          { cancel_at_period_end: true }
+        );
+
+        await SubscriptionModel.findOneAndUpdate(
+          { userId: userData.id },
+          { $set: { nextPlanId: planId } },
+          { session }
+        );
+      }
+
+      await session.commitTransaction();
+      return { success: true };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
-
-    /** Upgrade (schedule new plan after current ends) */
-    if (type === "upgrade") {
-      await stripe.subscriptions.update(
-        userData.subscription.stripeSubscriptionId,
-        { cancel_at_period_end: true }
-      );
-
-      await SubscriptionModel.findOneAndUpdate(
-        { userId: userData.id },
-        { $set: { nextPlanId: planId } },
-        { session }
-      );
-    }
-
-    await session.commitTransaction();
-    return { success: true };
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
-}
+  },
 };

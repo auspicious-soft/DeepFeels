@@ -3,11 +3,9 @@ import { moodModel } from "src/models/user/mood-schema";
 import { UserModel } from "src/models/user/user-schema";
 
 export const startCronJob = () => {
-  console.log("Initializing daily mood check cron job...");
   
   // Run every day at 1 AM
   cron.schedule("0 1 * * *", async () => {
-    console.log(`Running daily mood check cron job at ${new Date().toISOString()} 🕐`);
     
     try {
       // Create yesterday's date range more carefully
@@ -23,8 +21,7 @@ export const startCronJob = () => {
       const endOfYesterday = new Date(yesterday);
       endOfYesterday.setHours(23, 59, 59, 999);
 
-      console.log(`Checking for mood records between ${startOfYesterday.toISOString()} and ${endOfYesterday.toISOString()}`);
-
+  
       // Find eligible users with better error handling
       const allUsers = await UserModel.find({
         isUserInfoComplete: true,
@@ -34,10 +31,8 @@ export const startCronJob = () => {
         isDeleted: false, // Make sure this matches your schema exactly
       }).select('_id fullName email'); // Only select needed fields for performance
 
-      console.log(`Found ${allUsers.length} eligible users`);
-
+    
       if (allUsers.length === 0) {
-        console.log("No eligible users found. Cron job completed.");
         return;
       }
 
@@ -64,7 +59,6 @@ export const startCronJob = () => {
               mood: "Not Recorded",
             });
 
-            console.log(`✅ Created 'Not Recorded' mood for user ${user._id} (${user.email})`);
             createdCount++;
           } else {
             console.log(`⏭️  Mood already exists for user ${user._id} (${user.email}): ${existingMood.mood}`);
@@ -77,20 +71,17 @@ export const startCronJob = () => {
         }
       }
 
-      console.log(`Daily mood cron job completed ✅`);
-      console.log(`📊 Summary: ${processedCount} users processed, ${createdCount} mood records created, ${errorCount} errors`);
-      
+       
     } catch (error) {
       console.error("❌ Fatal error in daily mood cron job:", error);
     }
   });
 
-  console.log("Daily mood check cron job scheduled successfully ✅");
+ console.log("Daily mood check cron job scheduled successfully ✅");
 };
 
 // Alternative: Test function to run immediately (for debugging)
 export const testMoodCronJob = async () => {
-  console.log("🧪 Testing mood cron job logic...");
   
   try {
     const now = new Date();
@@ -103,8 +94,6 @@ export const testMoodCronJob = async () => {
     const endOfYesterday = new Date(yesterday);
     endOfYesterday.setHours(23, 59, 59, 999);
 
-    console.log(`Testing with date range: ${startOfYesterday.toISOString()} to ${endOfYesterday.toISOString()}`);
-
     // Test user query
     const userCount = await UserModel.countDocuments({
       isUserInfoComplete: true,
@@ -113,8 +102,6 @@ export const testMoodCronJob = async () => {
       hasUsedTrial: true,
       isDeleted: false,
     });
-
-    console.log(`Found ${userCount} eligible users in database`);
 
     // Test mood query for one user (if any exists)
     const sampleUser = await UserModel.findOne({

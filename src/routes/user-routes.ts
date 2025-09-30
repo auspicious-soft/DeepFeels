@@ -17,6 +17,7 @@ import {
   createOrUpdateMood,
   createSupportRequest,
   deleteAccount,
+  deletecompatibilityById,
   deleteJournalById,
   generateCompatibilityController,
   getAllDailyReflections,
@@ -71,7 +72,7 @@ paidRouter.post("/generate-horoscope", generateHoroscope);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
 paidRouter.route("/chat-gpt").post(streamChatWithGPT).get(getChatHistory);
 paidRouter.route("/compatibility").post(generateCompatibilityController).get(getAllUserCompatibility)
-paidRouter.get("/compatibility/:id",getCompatibilityById)
+paidRouter.route("/compatibility/:id").get(getCompatibilityById).delete(deletecompatibilityById)
 paidRouter.route("/support").post(createSupportRequest).get(getSupportRequests)
 // paidRouter.patch("/change-language", changeLanguage);
 // paidRouter.patch("/change-country", changeCountry);

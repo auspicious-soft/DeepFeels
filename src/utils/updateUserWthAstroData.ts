@@ -169,7 +169,7 @@ const getMarsHouseTrait = (house: number): string => {
 };
 
 // Updated function to use with your astrology data
-export const updateUserWithAstrologyData = async (astroData: any, userId: any,timezoneOffset:any) => {
+export const updateUserWithAstrologyData = async (astroData: any, userId: any,timezoneOffset:any,dataToSave:any) => {
   if (astroData) {
     // Extract Sun sign from the Sun planet data
     const sunPlanet = astroData.planets?.find((planet: any) => planet.name === 'Sun');
@@ -200,9 +200,13 @@ export const updateUserWithAstrologyData = async (astroData: any, userId: any,ti
           // Store additional detailed data          
           timezoneOffset:timezoneOffset,
           ascendantDegree: astroData.ascendant,
+          lilith:astroData.lilith,
+          vertex:astroData.vertex,
+          midheaven:astroData.midheaven,
           planetsData: astroData.planets,
           housesData: astroData.houses,
           aspectsData: astroData.aspects,
+          dataToSave:dataToSave
         },
       }
     );

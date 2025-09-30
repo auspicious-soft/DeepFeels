@@ -192,3 +192,87 @@ export function getTimezoneInfo(timezone: string, date?: Date): { offsetName: st
     throw new Error(`Error getting timezone info: ${error}`);
   }
 }
+export function buildUserContext(user: any, userInfo: any, todayReflection: any): string {
+  let context = `# User Astrological Profile
+
+## Basic Information
+- Full Name: ${user.fullName}
+- Date of Birth: ${userInfo.dob || "Not provided"}
+- Birth Time: ${userInfo.timeOfBirth || "Not provided"}
+- Birth Location: ${userInfo.birthPlace || "Not provided"}
+- Gender: ${userInfo.gender || "Not specified"}
+- Timezone: ${userInfo.timeZone || "Unknown"} (Offset: ${userInfo.birthTimezoneOffset || "N/A"})
+
+## Birth Chart Details
+- Sun Sign: ${userInfo.sunSign || "Unknown"}
+- Moon Sign: ${userInfo.moonSign || "Unknown"}
+- Rising Sign (Ascendant): ${userInfo.risingStar || "Unknown"}
+- Ascendant Degree: ${userInfo.ascendantDegree || "N/A"}°
+- Midheaven: ${userInfo.midheaven || "N/A"}°
+- Vertex: ${userInfo.vertex || "N/A"}°
+- Birth Star: ${userInfo.birthStar || "Unknown"}
+- Zodiac Sign: ${userInfo.zodiacSign || "Unknown"}
+
+## Personality Keywords
+${userInfo.personalityKeywords?.length ? userInfo.personalityKeywords.join(", ") : "None specified"}
+
+## Planetary Positions
+${userInfo.planetsData ? JSON.stringify(userInfo.planetsData, null, 2) : "Not available"}
+
+## Houses
+${userInfo.housesData ? JSON.stringify(userInfo.housesData, null, 2) : "Not available"}
+
+## Aspects
+${userInfo.aspectsData ? JSON.stringify(userInfo.aspectsData, null, 2) : "Not available"}
+
+## Special Points
+- Lilith: ${userInfo.lilith ? JSON.stringify(userInfo.lilith) : "Not available"}
+`;
+
+  // Add today's reflection if available
+  if (todayReflection) {
+    context += `
+
+## Today's Astrological Reflection (${new Date(todayReflection.date).toLocaleDateString()})
+
+### Theme: ${todayReflection.title}
+**Today's Energy:** ${todayReflection.todayEnergy}
+**Emotional Theme:** ${todayReflection.emotionalTheme}
+**Suggested Focus:** ${todayReflection.suggestedFocus}
+
+**Mantra:** "${todayReflection.mantra}"
+**Grounding Tip:** "${todayReflection.groundingTip}"
+
+### Moon Phase Information
+${todayReflection.result?.moon_phase ? `
+**Phase:** ${todayReflection.result.moon_phase}
+**Significance:** ${todayReflection.result.significance}
+**Report:** ${todayReflection.result.report}
+` : "Not available"}
+
+### Active Transit Reflections
+${todayReflection.transitReflections?.map((tr: any, idx: number) => `
+**${idx + 1}. ${tr.transit}** (Intensity: ${tr.intensity})
+- Reflection: ${tr.reflection}
+- Key Action: ${tr.keyAction}
+- Score: ${tr.score}
+- Transit Planet: ${tr.transit_planet}
+- Natal Planet: ${tr.natal_planet}
+- Aspect: ${tr.aspect_type}
+- Exact Time: ${tr.exact_time}
+`).join("\n") || "No major transits today"}
+
+### Major Transits Today
+${todayReflection.majorTransits?.map((mt: any, idx: number) => `
+**${idx + 1}.** ${JSON.stringify(mt)}
+`).join("\n") || "No additional major transits"}
+`;
+  }
+
+  context += `
+
+---
+Use this comprehensive astrological data to provide personalized, accurate guidance to the user. Reference specific transits, aspects, or planetary positions when they relate to the user's questions.`;
+
+  return context;
+}

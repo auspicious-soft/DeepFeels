@@ -32,9 +32,18 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
       lon,
       timezone: timezoneOffset,
     });
+    const dataToSave = {
+    day,
+  month,
+  year,
+  hour,
+  min,
+  lat,
+  lon,
+  timezone: timezoneOffset,
+}
 
-    console.log('astroData:', astroData);
-
+   
     if (!astroData) {
       return null;
     }
@@ -58,10 +67,14 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
       moonSign: moonSign,
       risingStar: ascendantSign,
       ascendantDegree: astroData.ascendant,
+      lilith:astroData.lilith,
+      midheaven:astroData.midheaven,
+      vertex:astroData.vertex,
       planetsData: astroData.planets,
       housesData: astroData.houses,
       aspectsData: astroData.aspects,
-      timezoneOffset:timezoneOffset
+      timezoneOffset:timezoneOffset,
+      dataToSave:dataToSave
     };
   } catch (error) {
     console.error('Error in generateAstroDataFromAPI:', error);
