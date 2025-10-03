@@ -15,6 +15,7 @@ export interface IDailyReflection extends Document {
   natalData:any;
   transitReflections:any;
   majorTransits:any;
+  dailyPrediction:any;
 }
 
 const dailyReflectionSchema = new Schema<IDailyReflection>(
@@ -39,6 +40,10 @@ const dailyReflectionSchema = new Schema<IDailyReflection>(
       type:Schema.Types.Mixed,
       required:true
     },
+    dailyPrediction:{
+      type:Schema.Types.Mixed,
+      default:true
+    }
   },
   { timestamps: true }
 );

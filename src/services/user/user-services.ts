@@ -11,7 +11,7 @@ import { UserInfoModel } from "src/models/user/user-info";
 import { UserModel } from "src/models/user/user-schema";
 import { genders } from "src/utils/constant";
 import { getAndSaveTransitReflections } from "src/utils/GetDailyReflectionFromTransit";
-import { getDailyMajorTransits } from "src/utils/GetMajorAspects";
+import { getDailyMajorTransits, getDailyPrediction } from "src/utils/GetMajorAspects";
 import { generateReflectionWithGPT } from "src/utils/gpt/daily-reflection-gtp";
 import {
   getAstroDataFromAPI,
@@ -111,6 +111,10 @@ export const homeServices = {
             MoonData // Pass moon phase data as context
           );
 
+          const dailyPrediction = await getDailyPrediction({
+            zodiacSign: userInfo?.zodiacSign ?? "",
+          });
+
           // ⚡ STEP 4: Save everything to database
           const saved = await DailyReflectionModel.create({
             userId: userId,
@@ -119,6 +123,7 @@ export const homeServices = {
             result: MoonData, // Moon phase data
             transitReflections: transitReflections, // Individual transit reflections
             majorTransits: majorTransits, // Raw transit data (optional)
+            dailyPrediction: dailyPrediction
           });
 
           (dailyReflection as any) = saved.toObject();

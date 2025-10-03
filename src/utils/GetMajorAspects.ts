@@ -114,6 +114,26 @@ export const getNatalTransitDaily = async ({
     return null;
   }
 };
+export const getDailyPrediction = async ({
+  zodiacSign
+}: {
+  zodiacSign: string;
+}): Promise<NatalTransitResponse | null> => {
+  try {
+    const auth = Buffer.from(`${process.env.ASTROLOGY_USER_ID}:${process.env.ASTROLOGY_API_KEY}`).toString("base64");
+
+    const response = await axios.post(
+      `https://json.astrologyapi.com/v1/sun_sign_prediction/daily/${zodiacSign}`,
+      {},
+      { headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" } }
+    );
+
+    return response.data;
+  } catch (err: any) {
+    console.error("Error fetching astrology data:", err.response?.data || err.message);
+    return null;
+  }
+};
 
 /**
  * Filters natal transit data for major aspects only and ranks by significance
