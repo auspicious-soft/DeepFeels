@@ -21,7 +21,7 @@ import { TokenModel } from "src/models/user/token-schema";
 import { AdminModel } from "src/models/admin/admin-schema";
 import { OAuth2Client } from "google-auth-library";
 import { JournalEncryptionModel } from "src/models/journal/journal-encryption-schema";
-import { getAstroDataFromAPI } from "src/utils/gpt/generateAstroData";
+import { getAstroDataFromAPI, getPlanetsTropical } from "src/utils/gpt/generateAstroData";
 import { updateUserWithAstrologyData } from "src/utils/updateUserWthAstroData";
 import { getLocationDataFromPlaceOpenAi } from "src/utils/location";
 
@@ -474,6 +474,17 @@ const timezoneOffset = locationData.timezoneOffset;
   timezone: timezoneOffset,
 });
 
+const planetsData = await getPlanetsTropical({
+  day,
+  month,
+  year,
+  hour,
+  min,
+  lat,
+  lon,
+  timezone: timezoneOffset,
+});
+
 const dataToSave = {
     day,
   month,
@@ -486,7 +497,7 @@ const dataToSave = {
 }
 
 if (astroData) {
-  await updateUserWithAstrologyData(astroData, checkUser._id,timezoneOffset,dataToSave);
+  await updateUserWithAstrologyData(astroData, checkUser._id,timezoneOffset,dataToSave,planetsData);
 }else{
   throw new Error("Failed to fetch astrology data");
 }

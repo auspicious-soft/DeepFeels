@@ -162,6 +162,42 @@ export const getAstroDataFromAPI = async ({
     return null;
   }
 };
+export const getPlanetsTropical = async ({
+  day,
+  month,
+  year,
+  hour = 0,
+  min = 0,
+  lat,
+  lon,
+  timezone,
+}: {
+  day: number;
+  month: number;
+  year: number;
+  hour?: number;
+  min?: number;
+  lat: number;
+  lon: number;
+  timezone: number;
+}) => {
+  try {
+    // Use both user ID and API key for Basic Auth
+    const auth = Buffer.from(`${process.env.ASTROLOGY_USER_ID}:${process.env.ASTROLOGY_API_KEY}`).toString("base64");
+
+    const response = await axios.post(
+      "https://json.astrologyapi.com/v1/planets/tropical",
+      { day, month, year, hour, min, lat, lon, tzone: timezone },
+      { headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" } }
+    );
+
+    return response.data;
+  } catch (err: any) {
+    console.error("Error fetching astrology data:", err.response?.data || err.message);
+    return null;
+  }
+};
+
 export const getNatalTransitDaily = async ({
   day,
   month,

@@ -13,8 +13,11 @@ export const userHome = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
     req.body.language = userData.language || "en";
+    const date = req.query.date as string;
+    console.log('date:', date);
     const response = await homeServices.getUserHome({
       userData,
+      date,
     });
     return OK(res, response || {}, req.body.language || "en");
   } catch (err: any) {

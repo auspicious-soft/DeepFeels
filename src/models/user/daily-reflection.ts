@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IDailyReflection extends Document {
   userId: mongoose.Types.ObjectId;
   title: string;
-  date: Date;
+  date: string;
   reflection: string;
   groundingTip: string;
   mantra: string;
@@ -22,7 +22,7 @@ const dailyReflectionSchema = new Schema<IDailyReflection>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "user", required: true },
     title: { type: String, required: true },
-    date: { type: Date, required: true },
+    date: { type: String, required: true },
     groundingTip: { type: String, required: true },
     mantra: { type: String, required: true },
     todayEnergy:{type: String, required: true},

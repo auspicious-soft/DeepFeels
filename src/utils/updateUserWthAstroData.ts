@@ -169,7 +169,7 @@ const getMarsHouseTrait = (house: number): string => {
 };
 
 // Updated function to use with your astrology data
-export const updateUserWithAstrologyData = async (astroData: any, userId: any,timezoneOffset:any,dataToSave:any) => {
+export const updateUserWithAstrologyData = async (astroData: any, userId: any,timezoneOffset:any,dataToSave:any,planetsData:any) => {
   if (astroData) {
     // Extract Sun sign from the Sun planet data
     const sunPlanet = astroData.planets?.find((planet: any) => planet.name === 'Sun');
@@ -180,7 +180,7 @@ export const updateUserWithAstrologyData = async (astroData: any, userId: any,ti
     const moonSign = moonPlanet?.sign || "Unknown";
 
     // Get ascendant sign from houses data (1st house sign)
-    const ascendantHouse = astroData.houses?.find((house: any) => house.house === 1);
+    const ascendantHouse = planetsData.find((planet: any) => planet.name === "Ascendant");
     const ascendantSign = ascendantHouse?.sign || "Unknown";
 
     // Generate personality keywords from the astrology data

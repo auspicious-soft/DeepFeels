@@ -47,7 +47,8 @@ export const generateCompatibilityResultService = async (
           userAstroData,
           userId,
           userAstroData.timezoneOffset,
-          userAstroData.dataToSave
+          userAstroData.dataToSave,
+          userAstroData.planetData
         );
       } else {
         throw new Error("Failed to generate user's astrological data");

@@ -1,5 +1,5 @@
 import { getLocationDataFromPlace } from "src/middleware/getLatLngFromPlace";
-import { getAstroDataFromAPI } from "./gpt/generateAstroData";
+import { getAstroDataFromAPI, getPlanetsTropical } from "./gpt/generateAstroData";
 import { generatePersonalityKeywords } from "./updateUserWthAstroData";
 import { getLocationDataFromPlaceOpenAi } from "./location";
 
@@ -43,6 +43,17 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
   timezone: timezoneOffset,
 }
 
+const planetsData = await getPlanetsTropical({
+  day,
+  month,
+  year,
+  hour,
+  min,
+  lat,
+  lon,
+  timezone: timezoneOffset,
+});
+
    
     if (!astroData) {
       return null;
@@ -55,7 +66,7 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
     const moonPlanet = astroData.planets?.find((planet: any) => planet.name === 'Moon');
     const moonSign = moonPlanet?.sign || "Unknown";
 
-    const ascendantHouse = astroData.houses?.find((house: any) => house.house === 1);
+  const ascendantHouse = planetsData.find((planet: any) => planet.name === "Ascendant");
     const ascendantSign = ascendantHouse?.sign || "Unknown";
 
     const personalityKeywords = generatePersonalityKeywords(astroData);
@@ -74,7 +85,8 @@ export const generateAstroDataFromAPI = async ({ dob, timeOfBirth, birthPlace }:
       housesData: astroData.houses,
       aspectsData: astroData.aspects,
       timezoneOffset:timezoneOffset,
-      dataToSave:dataToSave
+      dataToSave:dataToSave,
+      planetData:planetsData
     };
   } catch (error) {
     console.error('Error in generateAstroDataFromAPI:', error);

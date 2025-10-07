@@ -17,6 +17,7 @@ import {
   getAstroDataFromAPI,
   getMoonPhaseReport,
   getNatalTransitDaily,
+  getPlanetsTropical,
 } from "src/utils/gpt/generateAstroData";
 import {
   convertToUTC,
@@ -45,13 +46,20 @@ export const homeServices = {
   getUserHome: async (payload: any) => {
     const user = payload.userData;
     const userId = user.id;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const dateParam = payload.date;
 
-    let dailyReflection = await DailyReflectionModel.findOne({
-      userId: userId,
-      date: today,
-    }).lean();
+  if (!dateParam) throw new Error("Date is required");
+
+  // 🗓 Extract only YYYY-MM-DD from frontend date
+  const frontendDate = new Date(dateParam);
+  const normalizedDateStr = frontendDate.toISOString().split("T")[0]; // "2025-10-07"
+  console.log("normalizedDateStr:", normalizedDateStr);
+
+  // ✅ Find daily reflection using date string
+  let dailyReflection = await DailyReflectionModel.findOne({
+    userId,
+    date: normalizedDateStr,
+  }).lean();
 
     if (!dailyReflection) {
       const userData = await UserModel.findById(userId).lean();
@@ -118,7 +126,7 @@ export const homeServices = {
           // ⚡ STEP 4: Save everything to database
           const saved = await DailyReflectionModel.create({
             userId: userId,
-            date: today,
+            date: normalizedDateStr,
             ...generated, // Main reflection data
             result: MoonData, // Moon phase data
             transitReflections: transitReflections, // Individual transit reflections
@@ -137,6 +145,7 @@ export const homeServices = {
     }
 
     // Get today's mood
+    const today = new Date();
     const startOfDay = new Date(today);
     const endOfDay = new Date(today);
     endOfDay.setHours(23, 59, 59, 999);
@@ -331,6 +340,16 @@ export const profileServices = {
           lon,
           timezone: timezoneOffset,
         });
+        const planetsData = await getPlanetsTropical({
+          day,
+          month,
+          year,
+          hour,
+          min,
+          lat,
+          lon,
+          timezone: timezoneOffset,
+        });
         const dataToSave = {
           day,
           month,
@@ -347,7 +366,8 @@ export const profileServices = {
             astroData,
             userId,
             timezoneOffset,
-            dataToSave
+            dataToSave,
+            planetsData
           );
         } else {
           throw new Error("Failed to fetch astrology data");
