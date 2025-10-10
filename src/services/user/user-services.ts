@@ -145,9 +145,9 @@ export const homeServices = {
     }
 
     // Get today's mood
-    const today = new Date();
-    const startOfDay = new Date(today);
-    const endOfDay = new Date(today);
+    // const today = new Date();
+    const startOfDay = new Date(normalizedDateStr);
+    const endOfDay = new Date(normalizedDateStr);
     endOfDay.setHours(23, 59, 59, 999);
 
     const moodDoc = await moodModel
