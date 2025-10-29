@@ -21,7 +21,11 @@ app.post(
   express.raw({ type: "application/json" }),
   handleStripeWebhook
 );
+// For IOS
 app.post("/app/webhook",express.raw({ type: "application/json" }),
+  handleAppWebhook)
+// For Apple
+app.post("/app/webhook/android",express.raw({ type: "application/json" }),
   handleAppWebhook)
 //Webhook Routes
 

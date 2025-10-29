@@ -62,8 +62,10 @@ export const homeServices = {
   }).lean();
 
     if (!dailyReflection) {
-      const userData = await UserModel.findById(userId).lean();
-      const userInfo = await UserInfoModel.findOne({ userId }).lean();
+      const [userData, userInfo] = await Promise.all([
+      UserModel.findById(userId).lean(),
+      UserInfoModel.findOne({ userId }).lean(),
+    ]);
 
       const hasRequiredData =
         userData?.fullName && userInfo?.dob && userInfo?.birthPlace;
@@ -96,21 +98,38 @@ export const homeServices = {
           }
           const data = userInfo?.dataToSave as IUserAstroData;
 
-          // ⚡ STEP 1: Get Moon Phase Data
-          const MoonData = await getMoonPhaseReport({
-            day: data.day,
-            month: data.month,
-            year: data.year,
-            hour: data.hour,
-            min: data.min,
-            lat: data.lat,
-            lon: data.lon,
-            timezone: data.timezone,
-          });
+          //   const MoonData = await getMoonPhaseReport({
+          //   day: data.day,
+          //   month: data.month,
+          //   year: data.year,
+          //   hour: data.hour,
+          //   min: data.min,
+          //   lat: data.lat,
+          //   lon: data.lon,
+          //   timezone: data.timezone,
+          // });
 
-          // ⚡ STEP 2: Generate Transit Reflections with GPT (3 major aspects)
-          const { transitReflections, majorTransits } =
-            await getAndSaveTransitReflections(userInfo);
+         // ⚡ STEP 1–4 — Run these heavy async calls in parallel
+      const [MoonData, transitResults, dailyPrediction] = await Promise.all([
+        getMoonPhaseReport({
+          day: data.day,
+          month: data.month,
+          year: data.year,
+          hour: data.hour,
+          min: data.min,
+          lat: data.lat,
+          lon: data.lon,
+          timezone: data.timezone,
+        }),
+        getAndSaveTransitReflections(userInfo),
+        getDailyPrediction({ zodiacSign: userInfo?.zodiacSign ?? "" }),
+      ]);
+        const { transitReflections, majorTransits } = transitResults;
+
+
+          // // ⚡ STEP 2: Generate Transit Reflections with GPT (3 major aspects)
+          // const { transitReflections, majorTransits } =
+          //   await getAndSaveTransitReflections(userInfo);
 
           // ⚡ STEP 3: Generate Main Daily Reflection using transit data as context
           const generated = await generateReflectionWithGPT(
@@ -119,9 +138,9 @@ export const homeServices = {
             MoonData // Pass moon phase data as context
           );
 
-          const dailyPrediction = await getDailyPrediction({
-            zodiacSign: userInfo?.zodiacSign ?? "",
-          });
+          // const dailyPrediction = await getDailyPrediction({
+          //   zodiacSign: userInfo?.zodiacSign ?? "",
+          // });
 
           // ⚡ STEP 4: Save everything to database
           const saved = await DailyReflectionModel.create({
@@ -150,16 +169,26 @@ export const homeServices = {
     const endOfDay = new Date(normalizedDateStr);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const moodDoc = await moodModel
+    // const moodDoc = await moodModel
+    //   .findOne({
+    //     userId: userId,
+    //     date: { $gte: startOfDay, $lte: endOfDay },
+    //   })
+    //   .lean();
+
+    // const subscription = await SubscriptionModel.findOne({
+    //   userId: userId,
+    // });
+
+    const [moodDoc, subscription] = await Promise.all([
+    moodModel
       .findOne({
-        userId: userId,
+        userId,
         date: { $gte: startOfDay, $lte: endOfDay },
       })
-      .lean();
-
-    const subscription = await SubscriptionModel.findOne({
-      userId: userId,
-    });
+      .lean(),
+    SubscriptionModel.findOne({ userId }),
+  ]);
 
     return {
       plan: subscription || null,

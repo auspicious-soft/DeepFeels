@@ -257,7 +257,7 @@ export const getMoonPhaseReport = async ({
     const auth = Buffer.from(`${process.env.ASTROLOGY_USER_ID}:${process.env.ASTROLOGY_API_KEY}`).toString("base64");
 
     const response = await axios.post(
-      "https://json.astrologyapi.com/v1/moon_phase_report",
+      "https://json.astrologyapi.com/v1/new_moon_phase_report",
       { day, month, year, hour, min, lat, lon, tzone: timezone },
       { headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" } }
     );
