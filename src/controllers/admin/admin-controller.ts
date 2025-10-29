@@ -3,7 +3,7 @@ import { planModel } from "src/models/admin/plan-schema";
 import { PlatformInfoModel } from "src/models/admin/platform-info-schema";
 import { TransactionModel } from "src/models/user/transaction-schema";
 import { UserModel } from "src/models/user/user-schema";
-import { planServices } from "src/services/admin/plan-services";
+import { handleAppWebhookService, planServices } from "src/services/admin/plan-services";
 
 import {
   BADREQUEST,
@@ -267,5 +267,17 @@ export const getStats = async (req: Request, res: Response) => {
       return BADREQUEST(res, error.message, req.body?.language);
     }
     return INTERNAL_SERVER_ERROR(res, req.body?.language);
+  }
+};
+
+export const handleAppWebhook = async (req: Request, res: Response) => {
+  try {
+    const response = await handleAppWebhookService(req);
+    return OK(res, response || {}, req.body.language || "en");
+  } catch (err: any) {
+    if (err.message) {
+      return BADREQUEST(res, err.message, req.body.language || "en");
+    }
+    return INTERNAL_SERVER_ERROR(res, req.body.language || "en");
   }
 };

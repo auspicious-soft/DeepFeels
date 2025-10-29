@@ -549,3 +549,13 @@ if (status === "trialing") {
   }
 }
 };
+
+export const handleAppWebhookService = async(req: Request) => {
+  console.log('req:', req);
+  try {
+    
+  } catch (err: any) {
+    console.error("***STRIPE EVENT FAILED***", err.message);
+    return {};
+  }
+}
