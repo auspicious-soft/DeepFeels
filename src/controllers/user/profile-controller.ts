@@ -1011,7 +1011,7 @@ export const getSubscription = async (req: Request, res: Response) => {
 export const getGuideChat = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { type } = req.params; // or req.body.type if using POST
+    const { type } = req.params;
 
     if (!["breathe", "reflect", "align", "regulate"].includes(type.toLowerCase())) {
       return res.status(400).json({ error: "Invalid guide type" });
@@ -1021,9 +1021,13 @@ export const getGuideChat = async (req: Request, res: Response) => {
     res.status(200).json({
        success: true,
        message:"Guide Fetched successfully",
-       data:response});
-  } catch (error) {
+       data:response
+      });
+  } catch (error : any) {
     console.error("Guide error:", error);
-    res.status(500).json({ error: "Failed to generate guide message" });
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Something went wrong",
+    });
   }
 };
