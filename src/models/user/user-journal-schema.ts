@@ -17,6 +17,10 @@ const journalSchema = new mongoose.Schema({
   content:{
     type:String,
     required:true
+  },
+  iv:{
+    type:String,
+    required:true
   }
 },{
   timestamps:true

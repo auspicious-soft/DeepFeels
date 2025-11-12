@@ -4,7 +4,7 @@ import { UserJournalModel } from "src/models/user/user-journal-schema";
 export const journalServices = {
   // Create or update today's journal entry
   createOrUpdateJournal: async (payload: any) => {
-    const { userId, title, content } = payload;
+    const { userId, title, content,iv } = payload;
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
@@ -26,6 +26,7 @@ export const journalServices = {
       date: new Date(),
       title,
       content,
+      iv
     });
     return journal;
   },

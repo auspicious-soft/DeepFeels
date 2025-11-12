@@ -27,6 +27,9 @@ import {
   UNAUTHORIZED,
 } from "src/utils/response";
 import { SubscriptionModel } from "src/models/user/subscription-schema";
+import { openai } from "src/config/openAi";
+import { moodModel } from "src/models/user/mood-schema";
+import { DailyMoodModel } from "src/models/user/dailyMoodModel-schema";
 
 export const userProfile = async (req: Request, res: Response) => {
   try {
@@ -46,9 +49,6 @@ export const userProfile = async (req: Request, res: Response) => {
 export const getUser = async (req: Request, res: Response) => {
   try {
     const userData = req.user as any;
-
-    console.log(userData);
-
     const response = await profileServices.getUser({
       userData,
     });
@@ -73,7 +73,7 @@ export const updateUser = async (req: Request, res: Response) => {
       timeOfBirth,
       birthPlace,
       image,
-      timeZone
+      timeZone,
     } = req.body;
 
     const response = await profileServices.updateUser({
@@ -383,14 +383,16 @@ export const getAllDailyReflections = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      data:{ reflections,
-      pagination: {
-        total,
-        page: pageNumber,
-        limit: limitNumber,
-        totalPages: Math.ceil(total / limitNumber),
+      data: {
+        reflections,
+        pagination: {
+          total,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages: Math.ceil(total / limitNumber),
+        },
       },
-    }});
+    });
   } catch (err: any) {
     console.error("Error fetching reflections:", err);
     return res
@@ -458,10 +460,10 @@ export const updateDailyReflection = async (req: Request, res: Response) => {
 export const createJournal = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { title, content } = req.body;
+    const { title, content, iv } = req.body;
 
-    if (!title || !content) {
-      throw new Error("title and content are required");
+    if (!title || !content || !iv) {
+      throw new Error("title,iv and content are required");
     }
     const date = new Date();
     const journal = await journalServices.createOrUpdateJournal({
@@ -469,6 +471,7 @@ export const createJournal = async (req: Request, res: Response) => {
       date: new Date(date),
       title,
       content,
+      iv,
     });
 
     return res.status(201).json({ success: true, data: journal });
@@ -484,12 +487,84 @@ export const getJournalByUserId = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const { limit = 10, page = 1 } = req.query;
+
     const journals = await journalServices.getJournalsByUser(
       user.id,
       Number(page),
       Number(limit)
     );
-    return res.status(200).json({ success: true, data: journals });
+
+    // === DAILY OVERALL MOOD LOGIC ===
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check if today's summary already exists
+    let dailySummary = await DailyMoodModel.findOne({
+      userId: user.id,
+      date: today,
+    });
+
+    if (!dailySummary) {
+      // Delete any older summaries to keep only recent (optional)
+      await DailyMoodModel.deleteMany({
+        userId: user.id,
+        date: { $lt: today },
+      });
+
+      // Fetch last 7 mood entries (not just this week)
+      const moods = await moodModel
+        .find({ userId: user.id })
+        .sort({ date: -1 })
+        .limit(7);
+
+      if (moods.length > 0) {
+        const moodDescriptions = moods
+          .map(
+            (m) =>
+              `Date: ${m.date.toDateString()}, Mood: ${m.mood}, Note: ${
+                m.note || "No note"
+              }`
+          )
+          .join("\n");
+
+        const prompt = `
+You are an emotion analysis AI. Based on the user's most recent 7 mood entries, write a brief summary of how the user is likely feeling *today*. Be empathetic and concise (2–3 sentences).
+
+Here are the recent moods:
+${moodDescriptions}
+
+Summarize the user's overall emotional tone for today:
+        `;
+
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful emotional assistant.",
+            },
+            { role: "user", content: prompt },
+          ],
+        });
+
+        const summary =
+          aiResponse.choices[0]?.message?.content || "No summary generated.";
+
+        dailySummary = await DailyMoodModel.create({
+          userId: user.id,
+          date: today,
+          summary,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        journals,
+        dailyMoodSummary: dailySummary || null,
+      },
+    });
   } catch (error: any) {
     console.error(error);
     if (error.message) {
@@ -530,13 +605,14 @@ export const updateJournal = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const id = req.params.id;
-    const { title, content } = req.body;
-    if ([title, content].some((field) => !field || field.trim() === "")) {
-      throw new Error("title and content are required");
+    const { title, content, iv } = req.body;
+    if ([title, content, iv].some((field) => !field || field.trim() === "")) {
+      throw new Error("title,iv and content are required");
     }
     const payload = {
       title,
       content,
+      iv,
     };
     const journal = await journalServices.updateJournalById(
       id,
@@ -627,10 +703,13 @@ export const toggleJournalEncryption = async (req: Request, res: Response) => {
   }
 };
 
-export const checkJournalEncryptionPassword = async (req: Request, res: Response) => {
+export const checkJournalEncryptionPassword = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const user = req.user as any;
-    const  password  = req.query.password as string;
+    const password = req.query.password as string;
 
     if (!password) {
       throw new Error("Password is required");
@@ -644,7 +723,10 @@ export const checkJournalEncryptionPassword = async (req: Request, res: Response
       throw new Error("Journal encryption is not enabled");
     }
 
-    const isMatch = await bcrypt.compare(password, journalEncryption.journalEncryptionPassword);
+    const isMatch = await bcrypt.compare(
+      password,
+      journalEncryption.journalEncryptionPassword
+    );
 
     if (!isMatch) {
       throw new Error("Incorrect password");
@@ -722,7 +804,7 @@ export const streamChatWithGPT = async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    await chatServices.streamMessageToGPT(user.id, content,chatHistory, res);
+    await chatServices.streamMessageToGPT(user.id, content, chatHistory, res);
   } catch (error) {
     console.error("Streaming error:", error);
     if (!res.headersSent) {
@@ -773,7 +855,11 @@ export const generateCompatibilityController = async (
       throw new Error("Partner details are required");
     }
 
-    const result = await generateCompatibilityResultService(user.id, partner,docId);
+    const result = await generateCompatibilityResultService(
+      user.id,
+      partner,
+      docId
+    );
 
     return res.status(200).json({
       success: true,

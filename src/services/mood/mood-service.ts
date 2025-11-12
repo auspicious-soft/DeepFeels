@@ -9,7 +9,7 @@ export const moodServices = {
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-    const existingMood = await moodModel.findOne({
+    const existingMood : any = await moodModel.findOne({
       userId,
       date: { $gte: startOfDay, $lte: endOfDay },
     });
