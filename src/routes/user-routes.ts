@@ -26,6 +26,7 @@ import {
   getCompatibilityById,
   getDailyReflection,
   getDailyReflectionById,
+  getGuideChat,
   getJournalById,
   getJournalByUserId,
   getMoodByUserId,
@@ -71,6 +72,7 @@ paidRouter.patch("/change-password", changePassword);
 paidRouter.post("/generate-horoscope", generateHoroscope);
 paidRouter.route("/mood").post(createOrUpdateMood).get(getMoodByUserId);
 paidRouter.route("/chat-gpt").post(streamChatWithGPT).get(getChatHistory);
+paidRouter.get("/guide/:type",getGuideChat)
 paidRouter.route("/compatibility").post(generateCompatibilityController).get(getAllUserCompatibility)
 paidRouter.route("/compatibility/:id").get(getCompatibilityById).delete(deletecompatibilityById)
 paidRouter.route("/support").post(createSupportRequest).get(getSupportRequests)

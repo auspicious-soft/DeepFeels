@@ -30,6 +30,7 @@ import { SubscriptionModel } from "src/models/user/subscription-schema";
 import { openai } from "src/config/openAi";
 import { moodModel } from "src/models/user/mood-schema";
 import { DailyMoodModel } from "src/models/user/dailyMoodModel-schema";
+import { guideService } from "src/services/guide/guide-service";
 
 export const userProfile = async (req: Request, res: Response) => {
   try {
@@ -1005,5 +1006,21 @@ export const getSubscription = async (req: Request, res: Response) => {
       success: false,
       message: error.message || "Something went wrong",
     });
+  }
+};
+export const getGuideChat = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { type } = req.params; // or req.body.type if using POST
+
+    if (!["breathe", "reflect", "align", "regulate"].includes(type.toLowerCase())) {
+      return res.status(400).json({ error: "Invalid guide type" });
+    }
+
+    const response = await guideService.getGuideMessage(user.id, type.toLowerCase());
+    res.status(200).json(response);
+  } catch (error) {
+    console.error("Guide error:", error);
+    res.status(500).json({ error: "Failed to generate guide message" });
   }
 };
