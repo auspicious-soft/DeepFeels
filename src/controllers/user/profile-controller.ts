@@ -1018,7 +1018,10 @@ export const getGuideChat = async (req: Request, res: Response) => {
     }
 
     const response = await guideService.getGuideMessage(user.id, type.toLowerCase());
-    res.status(200).json(response);
+    res.status(200).json({
+       success: true,
+       message:"Guide Fetched successfully",
+       data:response});
   } catch (error) {
     console.error("Guide error:", error);
     res.status(500).json({ error: "Failed to generate guide message" });
