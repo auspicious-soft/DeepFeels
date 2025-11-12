@@ -737,9 +737,6 @@ const userSubscription = await SubscriptionModel.findOne({
 .sort({createdAt:-1})
 .lean();
 
-console.log('userSubscription:', userSubscription);
-
-
     return {
       _id: user._id,
       user: user,

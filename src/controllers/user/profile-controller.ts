@@ -499,63 +499,98 @@ export const getJournalByUserId = async (req: Request, res: Response) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check if today's summary already exists
+    // Fetch today's summary
     let dailySummary = await DailyMoodModel.findOne({
       userId: user.id,
       date: today,
     });
 
+    // Get latest 7 moods
+    const latestMoods = await moodModel
+      .find({ userId: user.id })
+      .sort({ date: -1 })
+      .limit(7)
+      .lean();
+
+    // Create a comparable array for change detection
+    const latestMoodSnapshot = latestMoods.map((m) => ({
+      _id: m._id.toString(),
+      mood: m.mood,
+      note: m.note || "",
+      date: m.date.toISOString(),
+    }));
+
+    let shouldRegenerate = false;
+
     if (!dailySummary) {
-      // Delete any older summaries to keep only recent (optional)
-      await DailyMoodModel.deleteMany({
-        userId: user.id,
-        date: { $lt: today },
-      });
+      shouldRegenerate = true;
+    } else {
+      // Compare stored snapshot with latest moods
+      const storedSnapshot = dailySummary.lastSevenMoods || [];
+      if (storedSnapshot.length !== latestMoodSnapshot.length) {
+        shouldRegenerate = true;
+      } else {
+        // Detect any mismatch
+        for (let i = 0; i < storedSnapshot.length; i++) {
+          const old = storedSnapshot[i];
+          const recent = latestMoodSnapshot[i];
+          if (
+            old._id !== recent._id ||
+            old.mood !== recent.mood ||
+            old.note !== recent.note
+          ) {
+            shouldRegenerate = true;
+            break;
+          }
+        }
+      }
+    }
 
-      // Fetch last 7 mood entries (not just this week)
-      const moods = await moodModel
-        .find({ userId: user.id })
-        .sort({ date: -1 })
-        .limit(7);
+    // === Regenerate Summary if Needed ===
+    if (shouldRegenerate && latestMoods.length > 0) {
+      const moodDescriptions = latestMoods
+        .map(
+          (m) =>
+            `Date: ${new Date(m.date).toDateString()}, Mood: ${m.mood}, Note: ${
+              m.note || "No note"
+            }`
+        )
+        .join("\n");
 
-      if (moods.length > 0) {
-        const moodDescriptions = moods
-          .map(
-            (m) =>
-              `Date: ${m.date.toDateString()}, Mood: ${m.mood}, Note: ${
-                m.note || "No note"
-              }`
-          )
-          .join("\n");
-
-        const prompt = `
+      const prompt = `
 You are an emotion analysis AI. Based on the user's most recent 7 mood entries, write a brief summary of how the user is likely feeling *today*. Be empathetic and concise (2–3 sentences).
 
 Here are the recent moods:
 ${moodDescriptions}
 
 Summarize the user's overall emotional tone for today:
-        `;
+      `;
 
-        const aiResponse = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful emotional assistant.",
-            },
-            { role: "user", content: prompt },
-          ],
-        });
+      const aiResponse = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful emotional assistant.",
+          },
+          { role: "user", content: prompt },
+        ],
+      });
 
-        const summary =
-          aiResponse.choices[0]?.message?.content || "No summary generated.";
+      const summary =
+        aiResponse.choices[0]?.message?.content || "No summary generated.";
 
+      if (!dailySummary) {
         dailySummary = await DailyMoodModel.create({
           userId: user.id,
           date: today,
           summary,
+          lastSevenMoods: latestMoodSnapshot, // store snapshot
         });
+      } else {
+        dailySummary.summary = summary;
+        dailySummary.lastSevenMoods = latestMoodSnapshot;
+        await dailySummary.save();
       }
     }
 
