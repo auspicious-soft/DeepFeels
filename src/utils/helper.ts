@@ -14,7 +14,7 @@ import jwkToPem from "jwk-to-pem";
 import { DateTime } from "luxon";
 
 configDotenv();
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const resend = new Resend(process.env.RESEND_API_KEY);
 
 export function getTranslatedGender(gender: string, lang: string) {
   const translations = {

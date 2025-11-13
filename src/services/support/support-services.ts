@@ -1,10 +1,12 @@
 import { supportModel } from "src/models/support/support-schema";
+import { resend } from "src/utils/helper";
 
 export const supportService = {
   // Create a new support request
-  createSupportRequest: async (payload: any) => {
+ createSupportRequest: async (payload: any) => {
     const { userId, fullName, email, subject, message } = payload;
 
+    // 1. Save the support request in DB
     const newSupport = await supportModel.create({
       userId,
       fullName,
@@ -12,6 +14,27 @@ export const supportService = {
       subject,
       message,
     });
+
+    // 2. Send notification email to your support inbox
+    try {
+      await resend.emails.send({
+        from: `Deepfeels Support <hello@deepfeels.net>`,
+        to: `hello@deepfeels.net`,
+        replyTo: email,                    
+        subject: `New Support Request: ${subject}`,
+        html: `
+          <h2>New Support Request</h2>
+          <p><strong>Name:</strong> ${fullName}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Message:</strong></p>
+          <p>${message}</p>
+        `,
+      });
+
+      console.log('Support email sent successfully.');
+    } catch (error) {
+      console.error('Error sending support email:', error);
+    }
 
     return newSupport;
   },
